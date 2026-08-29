@@ -59,28 +59,9 @@ export const DriverService = {
               id: d.id,
               ...(d.data() as Omit<Driver, 'id'>)
             }));
-
-            // If Firestore only has partial records, merge with INITIAL_DRIVERS and seed missing records
-            const existingNames = new Set(list.map((d) => (d.name || '').toUpperCase().trim()));
-            const missingSeeds = INITIAL_DRIVERS.filter((seed) => !existingNames.has(seed.name.toUpperCase().trim()));
-
-            if (missingSeeds.length > 0 && list.length < INITIAL_DRIVERS.length) {
-              for (const seed of missingSeeds) {
-                try {
-                  await setDoc(doc(db, 'drivers', seed.id), {
-                    ...seed,
-                    createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp()
-                  });
-                } catch (_) {}
-              }
-              const merged = [...list, ...missingSeeds];
-              saveLocalDrivers(merged);
-            } else {
-              saveLocalDrivers(list);
-            }
+            saveLocalDrivers(list);
           } else {
-            // Seed all initial drivers if collection is empty
+            // Seed all initial drivers only if collection is empty
             for (const seed of INITIAL_DRIVERS) {
               try {
                 await setDoc(doc(db, 'drivers', seed.id), {

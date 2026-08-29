@@ -59,28 +59,9 @@ export const VehicleService = {
               id: d.id,
               ...(d.data() as Omit<Vehicle, 'id'>)
             }));
-
-            // If Firestore only has partial records, merge with INITIAL_VEHICLES and seed missing records
-            const existingNumbers = new Set(list.map((v) => (v.carNumber || '').trim()));
-            const missingSeeds = INITIAL_VEHICLES.filter((seed) => !existingNumbers.has(seed.carNumber.trim()));
-
-            if (missingSeeds.length > 0 && list.length < INITIAL_VEHICLES.length) {
-              for (const seed of missingSeeds) {
-                try {
-                  await setDoc(doc(db, 'vehicles', seed.id), {
-                    ...seed,
-                    createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp()
-                  });
-                } catch (_) {}
-              }
-              const merged = [...list, ...missingSeeds];
-              saveLocalVehicles(merged);
-            } else {
-              saveLocalVehicles(list);
-            }
+            saveLocalVehicles(list);
           } else {
-            // Seed all initial vehicles if collection is empty
+            // Seed all initial vehicles only if collection is empty
             for (const seed of INITIAL_VEHICLES) {
               try {
                 await setDoc(doc(db, 'vehicles', seed.id), {
