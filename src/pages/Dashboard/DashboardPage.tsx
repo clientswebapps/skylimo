@@ -5,8 +5,6 @@ import {
   CheckCircle, 
   Clock, 
   XCircle, 
-  ArrowRight, 
-  Plus, 
   Car, 
   UserCheck, 
   Search 
@@ -16,11 +14,11 @@ import { BookingService } from '../../services/bookings/bookingService';
 import { DriverService } from '../../services/drivers/driverService';
 import { VehicleService } from '../../services/vehicles/vehicleService';
 import { getTodayYMD, formatDateDisplay } from '../../utils/dateUtils';
-import { StatusBadge } from '../../components/status/StatusBadge';
 import { formatTotalCurrency } from '../../utils/currencyUtils';
+import { TripsGradientChart } from '../../components/charts/TripsGradientChart';
 
 export const DashboardPage: React.FC = () => {
-  const [todayBookings, setTodayBookings] = useState<Booking[]>([]);
+  const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
 
@@ -28,10 +26,7 @@ export const DashboardPage: React.FC = () => {
   const todayStr = getTodayYMD();
 
   useEffect(() => {
-    const unsubBookings = BookingService.subscribeByDate(todayStr, (list) => {
-      setTodayBookings(list);
-    });
-
+    const unsubBookings = BookingService.subscribeAll(setAllBookings);
     const unsubDrivers = DriverService.subscribe(setDrivers);
     const unsubVehicles = VehicleService.subscribe(setVehicles);
 
@@ -40,7 +35,9 @@ export const DashboardPage: React.FC = () => {
       unsubDrivers();
       unsubVehicles();
     };
-  }, [todayStr]);
+  }, []);
+
+  const todayBookings = allBookings.filter((b) => b.date === todayStr);
 
   const totalTrips = todayBookings.length;
   const completedTrips = todayBookings.filter((b) => b.status === 'Completed').length;
@@ -127,115 +124,9 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="dashboard-main-grid">
-        {/* 1. FULL WIDTH: Today's Trip Schedule */}
-        <div className="dashboard-schedule-card">
-          <div style={{
-            padding: '12px 16px',
-            backgroundColor: 'var(--color-black)',
-            color: 'var(--color-white)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '2px solid var(--color-primary)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CalendarDays size={16} color="var(--color-primary)" />
-              <span style={{ fontWeight: 700, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Today's Trip Schedule ({todayBookings.length})
-              </span>
-            </div>
-
-            <button
-              className="btn btn-secondary btn-sm"
-              style={{ fontSize: '11px', padding: '4px 10px', color: '#111', fontWeight: 600 }}
-              onClick={() => navigate(`/bookings?date=${todayStr}`)}
-            >
-              Full Daily View <ArrowRight size={12} />
-            </button>
-          </div>
-
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-            {todayBookings.length === 0 ? (
-              <div className="empty-state" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 16px' }}>
-                <CalendarDays size={42} color="#AAA" />
-                <h4 className="empty-state-title" style={{ marginTop: '12px', fontSize: '15px' }}>No Bookings Scheduled for Today</h4>
-                <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginBottom: '16px' }}>
-                  Create a new booking trip to populate today's schedule.
-                </p>
-                <button 
-                  className="btn btn-primary" 
-                  onClick={() => navigate(`/bookings?date=${todayStr}`)}
-                >
-                  <Plus size={15} /> Add First Trip
-                </button>
-              </div>
-            ) : (
-              <div className="table-wrapper" style={{ border: 'none', flex: 1 }}>
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th style={{ minWidth: '70px' }}>Time</th>
-                      <th style={{ minWidth: '85px' }}>Invoice</th>
-                      <th style={{ minWidth: '140px' }}>Customer</th>
-                      <th style={{ minWidth: '120px' }}>Mobile Phone</th>
-                      <th style={{ minWidth: '220px' }}>Trip Route (From → To)</th>
-                      <th style={{ minWidth: '90px' }}>Flight</th>
-                      <th style={{ minWidth: '120px' }}>Driver</th>
-                      <th style={{ minWidth: '110px' }}>Vehicle</th>
-                      <th style={{ minWidth: '90px', textAlign: 'right' }}>Total (BHD)</th>
-                      <th style={{ minWidth: '100px', textAlign: 'center' }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {todayBookings.map((b) => {
-                      const tripTotal = (Number(b.cash) || 0) + (Number(b.card) || 0) + (Number(b.bankTransfer) || 0) + (Number(b.credit) || 0);
-                      return (
-                        <tr 
-                          key={b.id} 
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => navigate(`/bookings?date=${todayStr}`)}
-                        >
-                          <td style={{ fontWeight: 700 }}>{b.time}</td>
-                          <td style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{b.invoice}</td>
-                          <td style={{ fontWeight: 600 }}>{b.customer}</td>
-                          <td>
-                            {b.mobilePhone ? (
-                              <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                                {b.mobilePhone}
-                              </span>
-                            ) : '—'}
-                          </td>
-                          <td>
-                            <div style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span>{b.from || '—'}</span>
-                              <span style={{ color: 'var(--color-primary)', fontWeight: 700 }}>→</span>
-                              <span>{b.to || '—'}</span>
-                            </div>
-                          </td>
-                          <td style={{ fontWeight: 600, color: b.flight ? 'var(--color-info)' : 'inherit' }}>
-                            {b.flight || '—'}
-                          </td>
-                          <td style={{ fontWeight: 600 }}>{b.driver || '—'}</td>
-                          <td>
-                            <span>{b.carNumber || '—'}</span>
-                            {b.carType && <span style={{ fontSize: '11px', color: '#777', marginLeft: '4px' }}>({b.carType})</span>}
-                          </td>
-                          <td className="numeric" style={{ fontWeight: 700 }}>
-                            {formatTotalCurrency(tripTotal)}
-                          </td>
-                          <td style={{ textAlign: 'center' }}>
-                            <StatusBadge status={b.status} />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="dashboard-main-grid" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* 1. Velocity Trend Line Graph with Gradient Shades */}
+        <TripsGradientChart bookings={allBookings} />
 
         {/* 2. FLEET OVERVIEW: Active Drivers & Active Vehicles Side-by-Side Underneath */}
         <div className="dashboard-fleet-grid">

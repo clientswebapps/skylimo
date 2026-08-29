@@ -60,34 +60,36 @@ export const AppShell: React.FC = () => {
       <div className="main-wrapper">
         {/* Proper Non-Floating Mobile Header (visible only on mobile <768px) */}
         <header className="mobile-top-header">
-          <div className="mobile-brand-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              height: '30px',
-              backgroundColor: '#FFFFFF',
-              borderRadius: '4px',
-              padding: '2px 6px',
-              display: 'flex',
-              alignItems: 'center',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-            }}>
-              <img 
-                src="/cropped-skylimo-logo.png" 
-                alt="SkyLimo" 
-                style={{ maxHeight: '26px', width: 'auto', objectFit: 'contain' }}
-              />
-            </div>
-            <span className="mobile-brand-title">Operations</span>
-          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button 
+              type="button" 
+              className="mobile-header-menu-btn"
+              onClick={toggleSidebar}
+              aria-label="Toggle navigation menu"
+              title="Navigation Menu"
+            >
+              {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
 
-          <button 
-            type="button" 
-            className="mobile-header-menu-btn"
-            onClick={toggleSidebar}
-            aria-label="Toggle navigation menu"
-            title="Navigation Menu"
-          >
-            {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
-          </button>
+            <div className="mobile-brand-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                height: '30px',
+                backgroundColor: '#FFFFFF',
+                borderRadius: '4px',
+                padding: '2px 6px',
+                display: 'flex',
+                alignItems: 'center',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+              }}>
+                <img 
+                  src="/cropped-skylimo-logo.png" 
+                  alt="SkyLimo" 
+                  style={{ maxHeight: '26px', width: 'auto', objectFit: 'contain' }}
+                />
+              </div>
+              <span className="mobile-brand-title">Operations</span>
+            </div>
+          </div>
         </header>
 
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>

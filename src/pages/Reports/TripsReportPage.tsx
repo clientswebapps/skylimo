@@ -196,16 +196,9 @@ export const TripsReportPage: React.FC = () => {
       {/* 1. Page Header & Actions Toolbar */}
       <div className="page-toolbar report-toolbar hide-on-print">
         <div className="page-title-group">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <img 
-              src="/cropped-skylimo-logo.png" 
-              alt="SkyLimo" 
-              style={{ maxHeight: '28px', maxWidth: '110px', width: 'auto', objectFit: 'contain' }}
-            />
-            <h2 className="page-title">
-              {monthName} {selectedYear} BOOKING TRIPS REPORT
-            </h2>
-          </div>
+          <h2 className="page-title">
+            SKYLIMO {monthName} {selectedYear} BOOKING TRIPS REPORT
+          </h2>
           <span className="page-title-badge">{totalTripsAllDrivers} TOTAL TRIPS</span>
         </div>
 
