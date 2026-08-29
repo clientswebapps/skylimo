@@ -86,10 +86,15 @@ export interface Driver {
   updatedAt?: any;
 }
 
+export type VehiclePurpose = 'trips' | 'rentals' | 'both';
+
 export interface Vehicle {
   id: string;
   carNumber: string;
   carType: CarType;
+  carModel?: string;           // e.g. "2024", "2025"
+  purpose: VehiclePurpose;      // 'trips' | 'rentals' | 'both'
+  dailyRate?: number;          // Default daily rental rate in BHD
   isActive: boolean;
   notes?: string;
   createdAt?: any;

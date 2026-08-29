@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Trash2, KeyRound, User, Car, Calendar, DollarSign, FileText } from 'lucide-react';
-import type { CarRental, RentalPaymentStatus } from '../../types';
+import type { CarRental, RentalPaymentStatus, Vehicle } from '../../types';
 import { RentalService } from '../../services/rentals/rentalService';
+import { VehicleService } from '../../services/vehicles/vehicleService';
 import { DEFAULT_CAR_TYPES } from '../../constants';
 
 interface RentalModalFormProps {
@@ -22,6 +23,8 @@ export const RentalModalForm: React.FC<RentalModalFormProps> = ({
   onDelete
 }) => {
   const isEditing = !!rental;
+
+  const [rentalVehicles, setRentalVehicles] = useState<Vehicle[]>([]);
 
   const [agreementNumber, setAgreementNumber] = useState('');
   const [customerName, setCustomerName] = useState('');
@@ -47,6 +50,14 @@ export const RentalModalForm: React.FC<RentalModalFormProps> = ({
 
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    const unsub = VehicleService.subscribe((list) => {
+      const available = list.filter((v) => v.isActive && (v.purpose === 'rentals' || v.purpose === 'both'));
+      setRentalVehicles(available);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     if (rental) {
@@ -290,9 +301,41 @@ export const RentalModalForm: React.FC<RentalModalFormProps> = ({
 
             {/* Car Details Section */}
             <div style={{ background: '#F9FAFB', padding: '12px', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--color-black)', marginBottom: '10px' }}>
-                <Car size={14} color="var(--color-primary)" />
-                <span>Car Details</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, color: 'var(--color-black)' }}>
+                  <Car size={14} color="var(--color-primary)" />
+                  <span>Car Details & Vehicle Allocation</span>
+                </div>
+
+                {rentalVehicles.length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-text-muted)' }}>Quick Select Fleet:</span>
+                    <select
+                      className="form-select"
+                      style={{ fontSize: '11px', padding: '3px 8px', height: 'auto', fontWeight: 700, color: 'var(--color-primary)' }}
+                      value={carNumber}
+                      onChange={(e) => {
+                        const selected = rentalVehicles.find((v) => v.carNumber === e.target.value);
+                        if (selected) {
+                          setCarNumber(selected.carNumber);
+                          setCarType(selected.carType);
+                          if (selected.carModel) setCarModel(selected.carModel);
+                          if (selected.dailyRate && (!rentPrice || rentPrice === 15)) {
+                            setRentPrice(selected.dailyRate);
+                            setAdvancePayment(selected.dailyRate * rentalDays);
+                          }
+                        }
+                      }}
+                    >
+                      <option value="">-- Choose from Rental Fleet --</option>
+                      {rentalVehicles.map((v) => (
+                        <option key={v.id} value={v.carNumber}>
+                          #{v.carNumber} — {v.carType} {v.carModel ? `(${v.carModel})` : ''} {v.dailyRate ? `[BHD ${Number(v.dailyRate).toFixed(3)}/day]` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>

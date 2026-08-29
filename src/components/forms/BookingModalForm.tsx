@@ -167,7 +167,10 @@ export const BookingModalForm: React.FC<BookingModalFormProps> = ({
   };
 
   const activeDrivers = drivers.filter((d) => d.isActive || d.name === formData.driver);
-  const activeVehicles = vehicles.filter((v) => v.isActive || v.carNumber === formData.carNumber);
+  const activeVehicles = vehicles.filter(
+    (v) => (v.isActive || v.carNumber === formData.carNumber) && 
+           (!v.purpose || v.purpose === 'trips' || v.purpose === 'both' || v.carNumber === formData.carNumber)
+  );
 
   return (
     <div className="modal-backdrop" onClick={onClose}>

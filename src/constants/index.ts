@@ -59,8 +59,10 @@ export const INITIAL_DRIVERS = [
 ];
 
 export const INITIAL_VEHICLES = [
-  { id: 'veh-1', carNumber: '640315', carType: 'SUV', isActive: true },
-  { id: 'veh-2', carNumber: '529184', carType: 'Sedan', isActive: true },
-  { id: 'veh-3', carNumber: '418290', carType: 'Van', isActive: true },
-  { id: 'veh-4', carNumber: '731902', carType: 'Luxury Sedan', isActive: true }
+  { id: 'veh-1', carNumber: '640315', carType: 'SUV', carModel: '2024', purpose: 'trips' as const, isActive: true, notes: 'VIP Chauffeur Service' },
+  { id: 'veh-2', carNumber: '529184', carType: 'Sedan', carModel: '2024', purpose: 'trips' as const, isActive: true, notes: 'Airport Transfers' },
+  { id: 'veh-3', carNumber: '418290', carType: 'Van', carModel: '2023', purpose: 'both' as const, isActive: true, notes: 'Group Trips & Long Term Rental' },
+  { id: 'veh-4', carNumber: '731902', carType: 'Luxury Sedan', carModel: '2025', purpose: 'trips' as const, isActive: true, notes: 'Executive Fleet' },
+  { id: 'veh-5', carNumber: '624409', carType: 'Sedan', carModel: '2024', purpose: 'rentals' as const, dailyRate: 15, isActive: true, notes: 'Toyota Yaris - Customer Rental' },
+  { id: 'veh-6', carNumber: '581203', carType: 'Sedan', carModel: '2023', purpose: 'rentals' as const, dailyRate: 12, isActive: true, notes: 'Nissan Sunny - Customer Rental' }
 ];

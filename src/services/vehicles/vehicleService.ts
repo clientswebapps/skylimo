@@ -55,10 +55,14 @@ export const VehicleService = {
         collection(db, 'vehicles'),
         async (snapshot) => {
           if (!snapshot.empty) {
-            const list: Vehicle[] = snapshot.docs.map((d) => ({
-              id: d.id,
-              ...(d.data() as Omit<Vehicle, 'id'>)
-            }));
+            const list: Vehicle[] = snapshot.docs.map((d) => {
+              const data = d.data() as any;
+              return {
+                id: d.id,
+                ...data,
+                purpose: data.purpose || 'trips'
+              };
+            });
             saveLocalVehicles(list);
           } else {
             // Seed all initial vehicles only if collection is empty
@@ -89,9 +93,22 @@ export const VehicleService = {
     return getLocalVehicles();
   },
 
+  getForTrips(): Vehicle[] {
+    return getLocalVehicles().filter((v) => v.isActive && (!v.purpose || v.purpose === 'trips' || v.purpose === 'both'));
+  },
+
+  getForRentals(): Vehicle[] {
+    return getLocalVehicles().filter((v) => v.isActive && (v.purpose === 'rentals' || v.purpose === 'both'));
+  },
+
   async create(vehicle: Omit<Vehicle, 'id'>): Promise<Vehicle> {
     const id = 'veh-' + Date.now();
-    const newVehicle: Vehicle = { ...vehicle, id, isActive: true };
+    const newVehicle: Vehicle = { 
+      ...vehicle, 
+      id, 
+      purpose: vehicle.purpose || 'trips',
+      isActive: true 
+    };
     const list = getLocalVehicles();
     saveLocalVehicles([...list, newVehicle]);
 
