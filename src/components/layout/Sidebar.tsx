@@ -3,6 +3,8 @@ import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   CalendarDays, 
+  KeyRound,
+  FileBarChart,
   UserCheck, 
   Car, 
   Users, 
@@ -101,6 +103,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <CalendarDays size={18} className="nav-item-icon" />
           {!effectiveCollapsed && <span className="nav-item-label">Daily Bookings</span>}
+        </NavLink>
+
+        <NavLink 
+          to="/rentals" 
+          onClick={handleNavClick}
+          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+          title="Car Rentals"
+        >
+          <KeyRound size={18} className="nav-item-icon" />
+          {!effectiveCollapsed && <span className="nav-item-label">Car Rentals</span>}
+        </NavLink>
+
+        <NavLink 
+          to="/reports" 
+          onClick={handleNavClick}
+          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+          title="Trips Report"
+        >
+          <FileBarChart size={18} className="nav-item-icon" />
+          {!effectiveCollapsed && <span className="nav-item-label">Trips Report</span>}
         </NavLink>
 
         {!effectiveCollapsed ? (

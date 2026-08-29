@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, CheckCircle, XCircle, Phone, X, Save, Trash2 } from 'lucide-react';
+import { Plus, Edit, CheckCircle, XCircle, Phone, X, Save, Trash2, User } from 'lucide-react';
 import type { Driver } from '../../types';
 import { DriverService } from '../../services/drivers/driverService';
-import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
 export const DriversPage: React.FC = () => {
@@ -14,8 +13,8 @@ export const DriversPage: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const { isAdmin } = useAuth();
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -27,6 +26,7 @@ export const DriversPage: React.FC = () => {
     setName('');
     setPhone('');
     setNotes('');
+    setConfirmDelete(false);
     setIsModalOpen(true);
   };
 
@@ -35,12 +35,16 @@ export const DriversPage: React.FC = () => {
     setName(driver.name);
     setPhone(driver.phone || '');
     setNotes(driver.notes || '');
+    setConfirmDelete(false);
     setIsModalOpen(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      showToast('Please enter driver name', 'error');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -52,7 +56,7 @@ export const DriversPage: React.FC = () => {
         };
         setDrivers((prev) => prev.map((d) => (d.id === editingDriver.id ? { ...d, ...updatedData } : d)));
         await DriverService.update(editingDriver.id, updatedData);
-        showToast(`Driver ${name} updated successfully`, 'success');
+        showToast(`Driver ${name.trim().toUpperCase()} updated successfully`, 'success');
       } else {
         const newDriver = await DriverService.create({
           name: name.trim().toUpperCase(),
@@ -61,27 +65,37 @@ export const DriversPage: React.FC = () => {
           isActive: true
         });
         setDrivers((prev) => [...prev, newDriver]);
-        showToast(`Driver ${name} added successfully`, 'success');
+        showToast(`Driver ${name.trim().toUpperCase()} added successfully`, 'success');
       }
       setIsModalOpen(false);
     } catch (err: any) {
-      showToast('Error saving driver', 'error');
+      showToast('Error saving driver: ' + (err.message || ''), 'error');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleToggleActive = async (driver: Driver) => {
+  const handleToggleActive = async (driver: Driver, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setDrivers((prev) => prev.map((d) => (d.id === driver.id ? { ...d, isActive: !driver.isActive } : d)));
     await DriverService.toggleActive(driver.id, driver.isActive);
     showToast(`Driver ${driver.name} is now ${driver.isActive ? 'Inactive' : 'Active'}`, 'info');
   };
 
-  const handleDeleteDriver = async (driver: Driver) => {
-    if (window.confirm(`Are you sure you want to permanently delete driver "${driver.name}"?`)) {
-      setDrivers((prev) => prev.filter((d) => d.id !== driver.id));
-      await DriverService.delete(driver.id);
-      showToast(`Driver ${driver.name} deleted`, 'info');
+  const handleModalDelete = async () => {
+    if (!editingDriver) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+
+    try {
+      setDrivers((prev) => prev.filter((d) => d.id !== editingDriver.id));
+      await DriverService.delete(editingDriver.id);
+      showToast(`Driver ${editingDriver.name} deleted successfully`, 'info');
+      setIsModalOpen(false);
+    } catch (err: any) {
+      showToast('Error deleting driver: ' + (err.message || ''), 'error');
     }
   };
 
@@ -95,7 +109,7 @@ export const DriversPage: React.FC = () => {
 
         <button className="btn btn-primary" onClick={openAddModal}>
           <Plus size={16} />
-          ADD DRIVER
+          <span>ADD DRIVER</span>
         </button>
       </div>
 
@@ -112,9 +126,16 @@ export const DriversPage: React.FC = () => {
           </thead>
           <tbody>
             {drivers.map((driver) => (
-              <tr key={driver.id} style={{ opacity: driver.isActive ? 1 : 0.6 }}>
+              <tr 
+                key={driver.id} 
+                style={{ opacity: driver.isActive ? 1 : 0.6, cursor: 'pointer' }}
+                onClick={() => openEditModal(driver)}
+              >
                 <td style={{ fontWeight: 700, fontSize: '13px' }}>
-                  {driver.name}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <User size={14} color="var(--color-primary)" />
+                    {driver.name}
+                  </span>
                 </td>
                 <td>
                   {driver.phone ? (
@@ -130,9 +151,10 @@ export const DriversPage: React.FC = () => {
                   </span>
                 </td>
                 <td>{driver.notes || '—'}</td>
-                <td style={{ textAlign: 'center' }}>
+                <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                     <button
+                      type="button"
                       className="btn-icon"
                       title="Edit Driver"
                       onClick={() => openEditModal(driver)}
@@ -140,9 +162,10 @@ export const DriversPage: React.FC = () => {
                       <Edit size={13} />
                     </button>
                     <button
+                      type="button"
                       className="btn btn-secondary btn-sm"
                       style={{ fontSize: '11px', padding: '3px 8px' }}
-                      onClick={() => handleToggleActive(driver)}
+                      onClick={(e) => handleToggleActive(driver, e)}
                       title={driver.isActive ? 'Deactivate Driver' : 'Activate Driver'}
                     >
                       {driver.isActive ? (
@@ -155,16 +178,6 @@ export const DriversPage: React.FC = () => {
                         </span>
                       )}
                     </button>
-                    {isAdmin && (
-                      <button
-                        className="btn-icon"
-                        title="Delete Driver"
-                        style={{ color: 'var(--color-danger)' }}
-                        onClick={() => handleDeleteDriver(driver)}
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    )}
                   </div>
                 </td>
               </tr>
@@ -175,7 +188,7 @@ export const DriversPage: React.FC = () => {
 
       {isModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content" style={{ maxWidth: '460px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">
                 {editingDriver ? `Edit Driver: ${editingDriver.name}` : 'Add New Driver'}
@@ -192,20 +205,21 @@ export const DriversPage: React.FC = () => {
             <form onSubmit={handleSave}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div className="form-group">
-                  <label className="form-label">Driver Name *</label>
+                  <label className="form-label" style={{ fontSize: '11px', fontWeight: 700 }}>Driver Name *</label>
                   <input
                     type="text"
                     required
+                    autoFocus
                     className="form-input"
                     placeholder="e.g. MOHAMMED"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    style={{ textTransform: 'uppercase' }}
+                    style={{ textTransform: 'uppercase', fontWeight: 700 }}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Mobile Phone Number</label>
+                  <label className="form-label" style={{ fontSize: '11px', fontWeight: 700 }}>Mobile Phone Number</label>
                   <input
                     type="text"
                     className="form-input"
@@ -216,7 +230,7 @@ export const DriversPage: React.FC = () => {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Operational Notes / License info</label>
+                  <label className="form-label" style={{ fontSize: '11px', fontWeight: 700 }}>Operational Notes / License Info</label>
                   <textarea
                     className="form-textarea"
                     rows={3}
@@ -227,22 +241,44 @@ export const DriversPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="modal-footer">
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary"
-                  disabled={saving}
-                >
-                  <Save size={15} />
-                  {saving ? 'Saving...' : editingDriver ? 'Update Driver' : 'Add Driver'}
-                </button>
+              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  {editingDriver && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{
+                        backgroundColor: confirmDelete ? 'var(--color-danger)' : undefined,
+                        color: confirmDelete ? '#FFF' : 'var(--color-danger)',
+                        borderColor: confirmDelete ? 'var(--color-danger)' : 'var(--color-border)',
+                        fontSize: '11px',
+                        padding: '6px 12px'
+                      }}
+                      onClick={handleModalDelete}
+                    >
+                      <Trash2 size={13} />
+                      <span>{confirmDelete ? 'Confirm Delete?' : 'Delete'}</span>
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary btn-sm" 
+                    onClick={() => setIsModalOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary btn-sm"
+                    disabled={saving}
+                  >
+                    <Save size={14} />
+                    <span>{saving ? 'Saving...' : editingDriver ? 'Update Driver' : 'Add Driver'}</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>

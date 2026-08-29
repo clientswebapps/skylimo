@@ -8,6 +8,8 @@ import { AppShell } from './components/layout/AppShell';
 import { LoginPage } from './pages/Login/LoginPage';
 import { DashboardPage } from './pages/Dashboard/DashboardPage';
 import { DailyBookingsPage } from './pages/Bookings/DailyBookingsPage';
+import { CarRentalsPage } from './pages/Rentals/CarRentalsPage';
+import { TripsReportPage } from './pages/Reports/TripsReportPage';
 import { DriversPage } from './pages/Drivers/DriversPage';
 import { VehiclesPage } from './pages/Vehicles/VehiclesPage';
 import { UsersPage } from './pages/Users/UsersPage';
@@ -32,6 +34,8 @@ export const App: React.FC = () => {
             >
               <Route path="/" element={<DashboardPage />} />
               <Route path="/bookings" element={<DailyBookingsPage />} />
+              <Route path="/rentals" element={<CarRentalsPage />} />
+              <Route path="/reports" element={<TripsReportPage />} />
               <Route path="/calendar" element={<Navigate to="/bookings" replace />} />
               <Route path="/search" element={<Navigate to="/bookings" replace />} />
               <Route path="/drivers" element={<DriversPage />} />

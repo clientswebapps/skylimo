@@ -3,7 +3,6 @@ import { Plus, Edit, CheckCircle, XCircle, Car, X, Save, Trash2 } from 'lucide-r
 import type { Vehicle } from '../../types';
 import { VehicleService } from '../../services/vehicles/vehicleService';
 import { DEFAULT_CAR_TYPES } from '../../constants';
-import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
 export const VehiclesPage: React.FC = () => {
@@ -15,8 +14,8 @@ export const VehiclesPage: React.FC = () => {
   const [carType, setCarType] = useState(DEFAULT_CAR_TYPES[0]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const { isAdmin } = useAuth();
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -28,6 +27,7 @@ export const VehiclesPage: React.FC = () => {
     setCarNumber('');
     setCarType(DEFAULT_CAR_TYPES[0]);
     setNotes('');
+    setConfirmDelete(false);
     setIsModalOpen(true);
   };
 
@@ -36,12 +36,16 @@ export const VehiclesPage: React.FC = () => {
     setCarNumber(veh.carNumber);
     setCarType(veh.carType);
     setNotes(veh.notes || '');
+    setConfirmDelete(false);
     setIsModalOpen(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!carNumber.trim()) return;
+    if (!carNumber.trim()) {
+      showToast('Please enter car plate number', 'error');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -53,7 +57,7 @@ export const VehiclesPage: React.FC = () => {
         };
         setVehicles((prev) => prev.map((v) => (v.id === editingVehicle.id ? { ...v, ...updatedData } : v)));
         await VehicleService.update(editingVehicle.id, updatedData);
-        showToast(`Vehicle ${carNumber} updated successfully`, 'success');
+        showToast(`Vehicle ${carNumber.trim()} updated successfully`, 'success');
       } else {
         const newVehicle = await VehicleService.create({
           carNumber: carNumber.trim(),
@@ -62,27 +66,37 @@ export const VehiclesPage: React.FC = () => {
           isActive: true
         });
         setVehicles((prev) => [...prev, newVehicle]);
-        showToast(`Vehicle ${carNumber} added successfully`, 'success');
+        showToast(`Vehicle ${carNumber.trim()} added successfully`, 'success');
       }
       setIsModalOpen(false);
     } catch (err: any) {
-      showToast('Error saving vehicle', 'error');
+      showToast('Error saving vehicle: ' + (err.message || ''), 'error');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleToggleActive = async (veh: Vehicle) => {
+  const handleToggleActive = async (veh: Vehicle, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setVehicles((prev) => prev.map((v) => (v.id === veh.id ? { ...v, isActive: !veh.isActive } : v)));
     await VehicleService.toggleActive(veh.id, veh.isActive);
     showToast(`Vehicle ${veh.carNumber} is now ${veh.isActive ? 'Inactive' : 'Active'}`, 'info');
   };
 
-  const handleDeleteVehicle = async (veh: Vehicle) => {
-    if (window.confirm(`Are you sure you want to permanently delete vehicle "${veh.carNumber}"?`)) {
-      setVehicles((prev) => prev.filter((v) => v.id !== veh.id));
-      await VehicleService.delete(veh.id);
-      showToast(`Vehicle ${veh.carNumber} deleted`, 'info');
+  const handleModalDelete = async () => {
+    if (!editingVehicle) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+
+    try {
+      setVehicles((prev) => prev.filter((v) => v.id !== editingVehicle.id));
+      await VehicleService.delete(editingVehicle.id);
+      showToast(`Vehicle ${editingVehicle.carNumber} deleted successfully`, 'info');
+      setIsModalOpen(false);
+    } catch (err: any) {
+      showToast('Error deleting vehicle: ' + (err.message || ''), 'error');
     }
   };
 
@@ -96,7 +110,7 @@ export const VehiclesPage: React.FC = () => {
 
         <button className="btn btn-primary" onClick={openAddModal}>
           <Plus size={16} />
-          ADD VEHICLE
+          <span>ADD VEHICLE</span>
         </button>
       </div>
 
@@ -113,7 +127,11 @@ export const VehiclesPage: React.FC = () => {
           </thead>
           <tbody>
             {vehicles.map((veh) => (
-              <tr key={veh.id} style={{ opacity: veh.isActive ? 1 : 0.6 }}>
+              <tr 
+                key={veh.id} 
+                style={{ opacity: veh.isActive ? 1 : 0.6, cursor: 'pointer' }}
+                onClick={() => openEditModal(veh)}
+              >
                 <td style={{ fontWeight: 700, fontSize: '13px' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     <Car size={15} color="var(--color-primary)" />
@@ -127,9 +145,10 @@ export const VehiclesPage: React.FC = () => {
                   </span>
                 </td>
                 <td>{veh.notes || '—'}</td>
-                <td style={{ textAlign: 'center' }}>
+                <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                     <button
+                      type="button"
                       className="btn-icon"
                       title="Edit Vehicle"
                       onClick={() => openEditModal(veh)}
@@ -137,9 +156,10 @@ export const VehiclesPage: React.FC = () => {
                       <Edit size={13} />
                     </button>
                     <button
+                      type="button"
                       className="btn btn-secondary btn-sm"
                       style={{ fontSize: '11px', padding: '3px 8px' }}
-                      onClick={() => handleToggleActive(veh)}
+                      onClick={(e) => handleToggleActive(veh, e)}
                       title={veh.isActive ? 'Deactivate Vehicle' : 'Activate Vehicle'}
                     >
                       {veh.isActive ? (
@@ -152,16 +172,6 @@ export const VehiclesPage: React.FC = () => {
                         </span>
                       )}
                     </button>
-                    {isAdmin && (
-                      <button
-                        className="btn-icon"
-                        title="Delete Vehicle"
-                        style={{ color: 'var(--color-danger)' }}
-                        onClick={() => handleDeleteVehicle(veh)}
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    )}
                   </div>
                 </td>
               </tr>
@@ -172,7 +182,7 @@ export const VehiclesPage: React.FC = () => {
 
       {isModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content" style={{ maxWidth: '460px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">
                 {editingVehicle ? `Edit Vehicle: ${editingVehicle.carNumber}` : 'Add New Vehicle'}
@@ -189,19 +199,21 @@ export const VehiclesPage: React.FC = () => {
             <form onSubmit={handleSave}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div className="form-group">
-                  <label className="form-label">Car Plate Number / Code *</label>
+                  <label className="form-label" style={{ fontSize: '11px', fontWeight: 700 }}>Car Plate Number / Code *</label>
                   <input
                     type="text"
                     required
+                    autoFocus
                     className="form-input"
                     placeholder="e.g. 640315"
                     value={carNumber}
                     onChange={(e) => setCarNumber(e.target.value)}
+                    style={{ fontWeight: 700 }}
                   />
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Vehicle Category *</label>
+                  <label className="form-label" style={{ fontSize: '11px', fontWeight: 700 }}>Vehicle Category *</label>
                   <select
                     className="form-select"
                     value={carType}
@@ -214,7 +226,7 @@ export const VehiclesPage: React.FC = () => {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Vehicle Notes & Service Info</label>
+                  <label className="form-label" style={{ fontSize: '11px', fontWeight: 700 }}>Vehicle Notes & Service Info</label>
                   <textarea
                     className="form-textarea"
                     rows={3}
@@ -225,22 +237,44 @@ export const VehiclesPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="modal-footer">
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary"
-                  disabled={saving}
-                >
-                  <Save size={15} />
-                  {saving ? 'Saving...' : editingVehicle ? 'Update Vehicle' : 'Add Vehicle'}
-                </button>
+              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  {editingVehicle && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{
+                        backgroundColor: confirmDelete ? 'var(--color-danger)' : undefined,
+                        color: confirmDelete ? '#FFF' : 'var(--color-danger)',
+                        borderColor: confirmDelete ? 'var(--color-danger)' : 'var(--color-border)',
+                        fontSize: '11px',
+                        padding: '6px 12px'
+                      }}
+                      onClick={handleModalDelete}
+                    >
+                      <Trash2 size={13} />
+                      <span>{confirmDelete ? 'Confirm Delete?' : 'Delete'}</span>
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary btn-sm" 
+                    onClick={() => setIsModalOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary btn-sm"
+                    disabled={saving}
+                  >
+                    <Save size={14} />
+                    <span>{saving ? 'Saving...' : editingVehicle ? 'Update Vehicle' : 'Add Vehicle'}</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>

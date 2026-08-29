@@ -30,6 +30,7 @@ interface DateNavigatorProps {
   activeView: 'day' | 'week' | 'month';
   onViewChange: (view: 'day' | 'week' | 'month') => void;
   onAddBooking: () => void;
+  addButtonLabel?: string;
 }
 
 export const DateNavigator: React.FC<DateNavigatorProps> = ({
@@ -37,7 +38,8 @@ export const DateNavigator: React.FC<DateNavigatorProps> = ({
   onDateChange,
   activeView,
   onViewChange,
-  onAddBooking
+  onAddBooking,
+  addButtonLabel = 'ADD BOOKING'
 }) => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -354,7 +356,7 @@ export const DateNavigator: React.FC<DateNavigatorProps> = ({
       <div className="date-nav-right-group">
         <button className="btn btn-primary btn-add-booking-top" onClick={onAddBooking}>
           <Plus size={14} />
-          <span>ADD BOOKING</span>
+          <span>{addButtonLabel}</span>
         </button>
       </div>
     </div>

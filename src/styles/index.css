@@ -1755,3 +1755,178 @@ button, input, select, textarea {
     right: 0;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   CAR RENTALS MODULE STYLING
+   ───────────────────────────────────────────────────────────── */
+.rental-table-wrapper {
+  background-color: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+.rental-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.rental-data-table th,
+.rental-data-table td {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border-light);
+  white-space: nowrap;
+}
+
+.rental-header-group-row th {
+  background-color: #1A1A1A;
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-align: center;
+  padding: 6px 8px;
+}
+
+.rental-header-sub-row th {
+  background-color: #2D2D2D;
+  color: #EAEAEA;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 6px 8px;
+}
+
+.rental-group-customer {
+  background-color: #222222 !important;
+  border-left: 2px solid #555;
+  border-right: 2px solid #555;
+}
+
+.rental-group-car {
+  background-color: #262626 !important;
+  border-right: 2px solid #555;
+}
+
+.rental-group-rent {
+  background-color: #2A2A2A !important;
+  border-right: 2px solid #555;
+}
+
+.rental-group-payment {
+  background-color: #2E2E2E !important;
+  border-right: 2px solid #555;
+}
+
+.rental-agreement-badge {
+  display: inline-block;
+  background-color: #10B981;
+  color: #FFFFFF;
+  font-weight: 800;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  letter-spacing: 0.3px;
+}
+
+.rental-nationality-pill {
+  display: inline-block;
+  background-color: #F3F4F6;
+  color: #374151;
+  font-weight: 700;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.rental-cartype-pill {
+  display: inline-block;
+  background-color: #FDF2F8;
+  color: #9D174D;
+  font-weight: 700;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.rental-carnumber-pill {
+  display: inline-block;
+  background-color: #EFF6FF;
+  color: #1E40AF;
+  font-weight: 800;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.rental-status-badge {
+  display: inline-block;
+  font-weight: 800;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
+.rental-status-paid {
+  background-color: #D1FAE5;
+  color: #065F46;
+  border: 1px solid #A7F3D0;
+}
+
+.rental-status-partial {
+  background-color: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FDE68A;
+}
+
+.rental-status-unpaid {
+  background-color: #FEE2E2;
+  color: #991B1B;
+  border: 1px solid #FECACA;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   REPORTS MODULE STYLING & PRINT MEDIA
+   ───────────────────────────────────────────────────────────── */
+.report-sheet-card {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+@media print {
+  body {
+    background-color: #FFFFFF !important;
+    color: #000000 !important;
+  }
+
+  .sidebar,
+  .mobile-top-header,
+  .report-toolbar,
+  .hide-on-print {
+    display: none !important;
+  }
+
+  .app-shell {
+    display: block !important;
+  }
+
+  .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  .page-container {
+    padding: 0 !important;
+  }
+
+  .report-sheet-card {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+}
