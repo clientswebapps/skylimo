@@ -3,94 +3,39 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helper Functions ────────────────────────────────────
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function userDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    function isActive() {
-      return isSignedIn() && (
-        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
-        userDoc().isActive == true
-      );
-    }
-
-    // Admin check: Only Firestore role-based — no email pattern matching
-    function isAdmin() {
-      return isSignedIn() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        userDoc().role == 'admin';
-    }
-
-    // ── Validation Helpers ───────────────────────────────────
-    function isValidBookingStatus(status) {
-      return status in ['Pending', 'Confirmed', 'Completed', 'Cancelled', 'No Show'];
-    }
-
-    function isNonNegativeNumber(val) {
-      return val is number && val >= 0;
-    }
-
     // ── USERS Collection ────────────────────────────────────
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && (isAdmin() || request.auth.uid == userId);
-      allow update: if isSignedIn() && (isAdmin() || (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isActive'])));
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
     // ── BOOKINGS Collection ─────────────────────────────────
     match /bookings/{bookingId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && isActive()
-        && request.resource.data.customer is string
-        && request.resource.data.customer.size() > 0
-        && request.resource.data.date is string
-        && request.resource.data.date.size() == 10
-        && request.resource.data.time is string
-        && isValidBookingStatus(request.resource.data.status)
-        && isNonNegativeNumber(request.resource.data.cash)
-        && isNonNegativeNumber(request.resource.data.card)
-        && isNonNegativeNumber(request.resource.data.bankTransfer)
-        && isNonNegativeNumber(request.resource.data.credit)
-        && isNonNegativeNumber(request.resource.data.commission);
-      allow update: if isSignedIn() && isActive();
-      allow delete: if isSignedIn() && isActive();
+      allow read, write: if true;
     }
 
     // ── RENTALS Collection ──────────────────────────────────
     match /rentals/{rentalId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && isActive();
+      allow read, write: if true;
     }
 
     // ── ACTIVITY LOGS Collection ────────────────────────────
     match /activity_logs/{logId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() || true;
-      allow update, delete: if isAdmin();
+      allow read, write: if true;
     }
 
     // ── DRIVERS Collection ──────────────────────────────────
     match /drivers/{driverId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && isActive();
+      allow read, write: if true;
     }
 
     // ── VEHICLES Collection ─────────────────────────────────
     match /vehicles/{vehicleId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && isActive();
+      allow read, write: if true;
     }
 
     // ── SETTINGS Collection ─────────────────────────────────
     match /settings/{settingId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
   }
 }

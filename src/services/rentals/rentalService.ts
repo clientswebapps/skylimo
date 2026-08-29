@@ -172,6 +172,14 @@ export const RentalService = {
     callback(getLocalRentals());
     rentalListeners.add(callback);
 
+    // Cross-tab sync
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) {
+        callback(getLocalRentals());
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
     let unsubscribeFirestore = () => {};
     try {
       unsubscribeFirestore = onSnapshot(
@@ -186,14 +194,13 @@ export const RentalService = {
             notifyRentalListeners();
           }
         },
-        (error) => {
-          console.warn('Firestore rentals sync fallback to local:', error);
-        }
+        () => {}
       );
     } catch (_) {}
 
     return () => {
       rentalListeners.delete(callback);
+      window.removeEventListener('storage', handleStorage);
       unsubscribeFirestore();
     };
   },
