@@ -110,9 +110,13 @@ export const SearchPage: React.FC = () => {
   };
 
   const handleDeleteBooking = async (id: string) => {
+    if (!isAdmin) {
+      showToast('Action restricted: Only Administrators can delete booking records.', 'error');
+      return;
+    }
     setResults((prev) => prev.filter((b) => b.id !== id));
     await BookingService.delete(id);
-    showToast('Booking deleted', 'info');
+    showToast('Booking deleted successfully', 'info');
     fetchResults();
   };
 
@@ -336,6 +340,7 @@ export const SearchPage: React.FC = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveModal}
+        onDelete={isAdmin ? handleDeleteBooking : undefined}
         initialData={editingBooking}
         drivers={drivers}
         vehicles={vehicles}

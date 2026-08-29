@@ -16,6 +16,7 @@ import type { Vehicle, VehiclePurpose } from '../../types';
 import { VehicleService } from '../../services/vehicles/vehicleService';
 import { DEFAULT_CAR_TYPES } from '../../constants';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 
 type PurposeFilter = 'all' | 'trips' | 'rentals' | 'both';
 
@@ -23,6 +24,9 @@ export const VehiclesPage: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [activeTab, setActiveTab] = useState<PurposeFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
@@ -119,6 +123,10 @@ export const VehiclesPage: React.FC = () => {
   };
 
   const handleModalDelete = async () => {
+    if (!isAdmin) {
+      showToast('Action restricted: Only Administrators can delete vehicles.', 'error');
+      return;
+    }
     if (!editingVehicle) return;
     if (!confirmDelete) {
       setConfirmDelete(true);
@@ -557,7 +565,7 @@ export const VehiclesPage: React.FC = () => {
 
               <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  {editingVehicle && (
+                  {isAdmin && editingVehicle && (
                     <button
                       type="button"
                       className="btn btn-secondary btn-sm"

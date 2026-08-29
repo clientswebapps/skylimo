@@ -14,6 +14,7 @@ import { DateNavigator } from '../../components/navigation/DateNavigator';
 import { RentalTable } from '../../components/table/RentalTable';
 import { RentalModalForm } from '../../components/forms/RentalModalForm';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import { 
   formatDateDisplay, 
   formatMonthHeader,
@@ -23,6 +24,9 @@ import {
 export const CarRentalsPage: React.FC = () => {
   const [rentals, setRentals] = useState<CarRental[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   // Date Navigation State
   const [currentDate, setCurrentDate] = useState('2026-08-29');
@@ -154,6 +158,10 @@ export const CarRentalsPage: React.FC = () => {
   };
 
   const handleDeleteRental = () => {
+    if (!isAdmin) {
+      showToast('Action restricted: Only Administrators can delete rental agreements.', 'error');
+      return;
+    }
     showToast('Rental agreement deleted', 'info');
   };
 
@@ -448,7 +456,7 @@ export const CarRentalsPage: React.FC = () => {
         defaultDate={currentDate}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveRental}
-        onDelete={handleDeleteRental}
+        onDelete={isAdmin ? handleDeleteRental : undefined}
       />
     </div>
   );

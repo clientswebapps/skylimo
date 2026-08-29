@@ -170,10 +170,14 @@ export const DailyBookingsPage: React.FC = () => {
   };
 
   const handleDeleteBooking = async (id: string) => {
+    if (!isAdmin) {
+      showToast('Action restricted: Only Administrators can delete booking records.', 'error');
+      return;
+    }
     setAllBookings((prev) => prev.filter((b) => b.id !== id));
     try {
       await BookingService.delete(id);
-      showToast('Booking deleted', 'info');
+      showToast('Booking deleted successfully', 'info');
     } catch (err: any) {
       showToast('Unable to delete booking', 'error');
     }
@@ -636,7 +640,7 @@ export const DailyBookingsPage: React.FC = () => {
           setEditingBooking(null);
         }}
         onSave={handleSaveModal}
-        onDelete={handleDeleteBooking}
+        onDelete={isAdmin ? handleDeleteBooking : undefined}
         initialData={editingBooking}
         drivers={drivers}
         vehicles={vehicles}

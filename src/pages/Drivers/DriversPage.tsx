@@ -3,11 +3,15 @@ import { Plus, Edit, CheckCircle, XCircle, Phone, X, Save, Trash2, User } from '
 import type { Driver } from '../../types';
 import { DriverService } from '../../services/drivers/driverService';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 
 export const DriversPage: React.FC = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
+
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -83,6 +87,10 @@ export const DriversPage: React.FC = () => {
   };
 
   const handleModalDelete = async () => {
+    if (!isAdmin) {
+      showToast('Action restricted: Only Administrators can delete drivers.', 'error');
+      return;
+    }
     if (!editingDriver) return;
     if (!confirmDelete) {
       setConfirmDelete(true);
@@ -243,7 +251,7 @@ export const DriversPage: React.FC = () => {
 
               <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  {editingDriver && (
+                  {isAdmin && editingDriver && (
                     <button
                       type="button"
                       className="btn btn-secondary btn-sm"
