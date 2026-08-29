@@ -126,15 +126,13 @@ export const PresenceService = {
             const lastSeenTime = data.lastSeen ? new Date(data.lastSeen).getTime() : 0;
             const diffSec = (now - lastSeenTime) / 1000;
 
-            let computedStatus: PresenceStatus = data.status || 'offline';
-            if (computedStatus !== 'offline') {
-              if (diffSec < 90) {
-                computedStatus = 'online';
-              } else if (diffSec < 300) {
-                computedStatus = 'away';
-              } else {
-                computedStatus = 'offline';
-              }
+            let computedStatus: PresenceStatus = 'offline';
+            if (diffSec < 90) {
+              computedStatus = 'online';
+            } else if (diffSec < 300) {
+              computedStatus = data.status === 'offline' ? 'offline' : 'away';
+            } else {
+              computedStatus = 'offline';
             }
 
             return {

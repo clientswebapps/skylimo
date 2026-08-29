@@ -55,8 +55,20 @@ export const LivePresencePage: React.FC = () => {
       const email = (u.email || '').trim().toLowerCase();
       const live = presenceMap.get(email);
       if (live) {
+        const lastSeenTime = live.lastSeen ? new Date(live.lastSeen).getTime() : 0;
+        const diffSec = (currentTime - lastSeenTime) / 1000;
+        let computedStatus: PresenceStatus = 'offline';
+        if (diffSec < 90) {
+          computedStatus = 'online';
+        } else if (diffSec < 300) {
+          computedStatus = live.status === 'offline' ? 'offline' : 'away';
+        } else {
+          computedStatus = 'offline';
+        }
+
         return {
           ...live,
+          status: computedStatus,
           userName: u.displayName || live.userName,
           userRole: u.role || live.userRole
         };
@@ -92,7 +104,7 @@ export const LivePresencePage: React.FC = () => {
     });
 
     return list;
-  }, [registeredUsers, presences]);
+  }, [registeredUsers, presences, currentTime]);
 
   // Filter presences
   const filteredPresences = useMemo(() => {
