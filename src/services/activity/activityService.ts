@@ -171,10 +171,20 @@ export const ActivityService = {
 
   getByUserId(userId: string): ActivityLog[] {
     const clean = (userId || '').trim().toLowerCase();
-    return getLocalActivityLogs().filter((l) => 
-      (l.userId && l.userId.toLowerCase() === clean) || 
-      (l.userEmail && l.userEmail.toLowerCase() === clean)
-    );
+    const prefix = clean.includes('@') ? clean.split('@')[0] : clean;
+    return getLocalActivityLogs().filter((l) => {
+      const lUid = (l.userId || '').trim().toLowerCase();
+      const lEmail = (l.userEmail || '').trim().toLowerCase();
+      const lName = (l.userName || '').trim().toLowerCase();
+      const lPrefix = lEmail.includes('@') ? lEmail.split('@')[0] : lEmail;
+
+      return (
+        (lUid && lUid === clean) ||
+        (lEmail && lEmail === clean) ||
+        (lName && (lName === clean || lName.includes(clean) || clean.includes(lName))) ||
+        (prefix && (lPrefix === prefix || lUid.includes(prefix)))
+      );
+    });
   },
 
   async log(params: {

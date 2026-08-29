@@ -87,12 +87,38 @@ export const UsersPage: React.FC = () => {
     setIsUserLogsModalOpen(true);
   };
 
+  // Robust helper to test if a log belongs to a given user across UIDs, emails, and names
+  const doesLogMatchUser = (log: ActivityLog, u: AppUser): boolean => {
+    if (!log || !u) return false;
+    const userUid = (u.uid || '').trim().toLowerCase();
+    const userEmail = (u.email || '').trim().toLowerCase();
+    const userDisplayName = (u.displayName || '').trim().toLowerCase();
+    const emailPrefix = userEmail.includes('@') ? userEmail.split('@')[0] : userEmail;
+
+    const logUserId = (log.userId || '').trim().toLowerCase();
+    const logUserEmail = (log.userEmail || '').trim().toLowerCase();
+    const logUserName = (log.userName || '').trim().toLowerCase();
+    const logEmailPrefix = logUserEmail.includes('@') ? logUserEmail.split('@')[0] : logUserEmail;
+
+    // 1. Direct UID match
+    if (logUserId && userUid && logUserId === userUid) return true;
+
+    // 2. Direct Email match
+    if (logUserEmail && userEmail && logUserEmail === userEmail) return true;
+
+    // 3. Match by email prefix (e.g. staff1 == staff1, or usr-staff-1 containing staff1)
+    if (emailPrefix && (logUserEmail === userEmail || logEmailPrefix === emailPrefix || logUserId.includes(emailPrefix) || userUid.includes(logEmailPrefix))) return true;
+
+    // 4. Match by Display Name (e.g. "Staff 1" == "Staff 1")
+    if (userDisplayName && logUserName && (logUserName === userDisplayName || logUserName.includes(userDisplayName) || userDisplayName.includes(logUserName))) return true;
+
+    return false;
+  };
+
   // Specific user's logs
   const selectedUserLogs = useMemo(() => {
     if (!selectedUserForLogs) return [];
-    return allLogs.filter(
-      (l) => l.userId === selectedUserForLogs.uid || l.userEmail.toLowerCase() === selectedUserForLogs.email.toLowerCase()
-    );
+    return allLogs.filter((l) => doesLogMatchUser(l, selectedUserForLogs));
   }, [allLogs, selectedUserForLogs]);
 
   const handleAddUser = async (e: React.FormEvent) => {
@@ -273,9 +299,7 @@ export const UsersPage: React.FC = () => {
           <tbody>
             {users.map((u) => {
               const isSelf = u.uid === currentUser?.uid || u.email.toLowerCase() === currentUser?.email?.toLowerCase();
-              const userActivityCount = allLogs.filter(
-                (l) => l.userId === u.uid || l.userEmail.toLowerCase() === u.email.toLowerCase()
-              ).length;
+              const userActivityCount = allLogs.filter((l) => doesLogMatchUser(l, u)).length;
 
               return (
                 <tr key={u.uid} style={{ opacity: u.isActive ? 1 : 0.6 }}>
