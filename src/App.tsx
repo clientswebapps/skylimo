@@ -13,7 +13,7 @@ import { TripsReportPage } from './pages/Reports/TripsReportPage';
 import { DriversPage } from './pages/Drivers/DriversPage';
 import { VehiclesPage } from './pages/Vehicles/VehiclesPage';
 import { UsersPage } from './pages/Users/UsersPage';
-import { SettingsPage } from './pages/Settings/SettingsPage';
+import { ActivityLogsPage } from './pages/Logs/ActivityLogsPage';
 
 export const App: React.FC = () => {
   return (
@@ -41,7 +41,7 @@ export const App: React.FC = () => {
               <Route path="/drivers" element={<DriversPage />} />
               <Route path="/vehicles" element={<VehiclesPage />} />
               
-              {/* Admin Only Route */}
+              {/* Admin Only Routes */}
               <Route 
                 path="/users" 
                 element={
@@ -50,8 +50,16 @@ export const App: React.FC = () => {
                   </ProtectedRoute>
                 } 
               />
+              <Route 
+                path="/logs" 
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <ActivityLogsPage />
+                  </ProtectedRoute>
+                } 
+              />
               
-              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings" element={<Navigate to="/bookings" replace />} />
             </Route>
 
             {/* Fallback */}

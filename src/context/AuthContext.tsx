@@ -11,6 +11,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../services/firebase/config';
 import { getLocalUsers, getUserCredentials } from '../services/users/userService';
 import type { AppUser, UserRole } from '../types';
+import { ActivityService } from '../services/activity/activityService';
 
 interface AuthContextType {
   user: AppUser | null;
@@ -148,6 +149,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         setUser(appUserData);
         localStorage.setItem('skylimo_user_session', JSON.stringify(appUserData));
+
+        ActivityService.log({
+          action: 'login',
+          module: 'auth',
+          description: `User ${appUserData.displayName || appUserData.email} (${appUserData.role.toUpperCase()}) logged in`,
+          user: appUserData
+        });
         return;
       }
 
@@ -169,6 +177,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         setUser(localUser);
         localStorage.setItem('skylimo_user_session', JSON.stringify(localUser));
+
+        ActivityService.log({
+          action: 'login',
+          module: 'auth',
+          description: `User ${localUser.displayName || localUser.email} (${localUser.role.toUpperCase()}) logged in`,
+          user: localUser
+        });
         return;
       }
 
@@ -181,6 +196,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signOut = async () => {
+    if (user) {
+      ActivityService.log({
+        action: 'logout',
+        module: 'auth',
+        description: `User ${user.displayName || user.email} signed out`,
+        user
+      });
+    }
     try {
       await fbSignOut(auth);
     } catch (_) {}

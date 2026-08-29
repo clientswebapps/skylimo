@@ -2,6 +2,7 @@ import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, serverTimest
 import { db } from '../firebase/config';
 import type { Driver } from '../../types';
 import { INITIAL_DRIVERS } from '../../constants';
+import { ActivityService } from '../activity/activityService';
 
 const STORAGE_KEY = 'skylimo_local_drivers';
 
@@ -74,6 +75,12 @@ export const DriverService = {
     const list = getLocalDrivers();
     saveLocalDrivers([...list, newDriver]);
 
+    ActivityService.log({
+      action: 'create',
+      module: 'drivers',
+      description: `Added new driver ${newDriver.name} (${newDriver.phone || 'No phone'})`
+    });
+
     try {
       await setDoc(doc(db, 'drivers', id), {
         ...newDriver,
@@ -86,8 +93,16 @@ export const DriverService = {
   },
 
   async update(id: string, updates: Partial<Driver>): Promise<void> {
-    const list = getLocalDrivers().map((d) => (d.id === id ? { ...d, ...updates } : d));
-    saveLocalDrivers(list);
+    const list = getLocalDrivers();
+    const targetDriver = list.find((d) => d.id === id);
+    const updatedList = list.map((d) => (d.id === id ? { ...d, ...updates } : d));
+    saveLocalDrivers(updatedList);
+
+    ActivityService.log({
+      action: 'update',
+      module: 'drivers',
+      description: `Updated driver details for ${targetDriver?.name || id}`
+    });
 
     try {
       await updateDoc(doc(db, 'drivers', id), {
@@ -98,12 +113,28 @@ export const DriverService = {
   },
 
   async toggleActive(id: string, currentStatus: boolean): Promise<void> {
+    const list = getLocalDrivers();
+    const targetDriver = list.find((d) => d.id === id);
     await this.update(id, { isActive: !currentStatus });
+
+    ActivityService.log({
+      action: 'status_change',
+      module: 'drivers',
+      description: `${currentStatus ? 'Deactivated' : 'Activated'} driver ${targetDriver?.name || id}`
+    });
   },
 
   async delete(id: string): Promise<void> {
-    const list = getLocalDrivers().filter((d) => d.id !== id);
-    saveLocalDrivers(list);
+    const list = getLocalDrivers();
+    const targetDriver = list.find((d) => d.id === id);
+    const filteredList = list.filter((d) => d.id !== id);
+    saveLocalDrivers(filteredList);
+
+    ActivityService.log({
+      action: 'delete',
+      module: 'drivers',
+      description: `Deleted driver ${targetDriver?.name || id}`
+    });
 
     try {
       await deleteDoc(doc(db, 'drivers', id));

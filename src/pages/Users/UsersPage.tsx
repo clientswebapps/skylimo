@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, 
   User as UserIcon, 
@@ -11,18 +11,31 @@ import {
   Lock, 
   Mail, 
   ShieldCheck, 
-  KeyRound 
+  KeyRound,
+  Activity,
+  Clock,
+  ExternalLink
 } from 'lucide-react';
-import type { AppUser, UserRole } from '../../types';
+import { Link } from 'react-router-dom';
+import type { AppUser, UserRole, ActivityLog } from '../../types';
 import { UserService } from '../../services/users/userService';
+import { ActivityService } from '../../services/activity/activityService';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
 export const UsersPage: React.FC = () => {
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [allLogs, setAllLogs] = useState<ActivityLog[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
+
+  // User Logs Modal state
+  const [isUserLogsModalOpen, setIsUserLogsModalOpen] = useState(false);
+  const [selectedUserForLogs, setSelectedUserForLogs] = useState<AppUser | null>(null);
+
+  // Delete User Confirmation Modal state
+  const [userToDelete, setUserToDelete] = useState<AppUser | null>(null);
 
   // Add user form state
   const [addEmail, setAddEmail] = useState('');
@@ -35,6 +48,7 @@ export const UsersPage: React.FC = () => {
   const [editPassword, setEditPassword] = useState('');
   const [editRole, setEditRole] = useState<UserRole>('staff');
   const [editIsActive, setEditIsActive] = useState(true);
+  const [confirmDeleteUser, setConfirmDeleteUser] = useState(false);
 
   const [saving, setSaving] = useState(false);
 
@@ -42,7 +56,12 @@ export const UsersPage: React.FC = () => {
   const { showToast } = useToast();
 
   useEffect(() => {
-    return UserService.subscribe(setUsers);
+    const unsubUsers = UserService.subscribe(setUsers);
+    const unsubLogs = ActivityService.subscribe(setAllLogs);
+    return () => {
+      unsubUsers();
+      unsubLogs();
+    };
   }, []);
 
   const openAddModal = () => {
@@ -59,8 +78,22 @@ export const UsersPage: React.FC = () => {
     setEditPassword('');
     setEditRole(u.role);
     setEditIsActive(u.isActive);
+    setConfirmDeleteUser(false);
     setIsEditModalOpen(true);
   };
+
+  const openUserLogsModal = (u: AppUser) => {
+    setSelectedUserForLogs(u);
+    setIsUserLogsModalOpen(true);
+  };
+
+  // Specific user's logs
+  const selectedUserLogs = useMemo(() => {
+    if (!selectedUserForLogs) return [];
+    return allLogs.filter(
+      (l) => l.userId === selectedUserForLogs.uid || l.userEmail.toLowerCase() === selectedUserForLogs.email.toLowerCase()
+    );
+  }, [allLogs, selectedUserForLogs]);
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +118,13 @@ export const UsersPage: React.FC = () => {
         const filtered = prev.filter((u) => u.email.toLowerCase() !== newUser.email.toLowerCase());
         return [...filtered, newUser];
       });
+
+      ActivityService.log({
+        action: 'create',
+        module: 'users',
+        description: `Created new user account ${newUser.email} (${newUser.role.toUpperCase()})`
+      });
+
       showToast(`User ${newUser.displayName} (${newUser.email}) created successfully! They can log in immediately.`, 'success');
       setIsAddModalOpen(false);
     } catch (err: any) {
@@ -110,10 +150,16 @@ export const UsersPage: React.FC = () => {
         password: editPassword.trim() ? editPassword.trim() : undefined
       });
 
+      ActivityService.log({
+        action: 'update',
+        module: 'users',
+        description: `Updated profile & settings for user ${editingUser.email}${editPassword.trim() ? ' (Password changed)' : ''}`
+      });
+
       showToast(`User ${editDisplayName || editingUser.email} updated successfully`, 'success');
       setIsEditModalOpen(false);
     } catch (err: any) {
-      showToast('Error updating user', 'error');
+      showToast('Error updating user: ' + (err.message || ''), 'error');
     } finally {
       setSaving(false);
     }
@@ -128,6 +174,13 @@ export const UsersPage: React.FC = () => {
 
     setUsers((prev) => prev.map((usr) => (usr.uid === u.uid ? { ...usr, isActive: !usr.isActive } : usr)));
     await UserService.toggleActive(u.uid, u.isActive);
+
+    ActivityService.log({
+      action: 'status_change',
+      module: 'users',
+      description: `${u.isActive ? 'Deactivated' : 'Activated'} user account ${u.email}`
+    });
+
     showToast(`User ${u.email} is now ${u.isActive ? 'Inactive' : 'Active'}`, 'info');
   };
 
@@ -140,20 +193,53 @@ export const UsersPage: React.FC = () => {
 
     setUsers((prev) => prev.map((usr) => (usr.uid === u.uid ? { ...usr, role: newRole } : usr)));
     await UserService.updateRole(u.uid, newRole);
+
+    ActivityService.log({
+      action: 'update',
+      module: 'users',
+      description: `Changed role for user ${u.email} to ${newRole.toUpperCase()}`
+    });
+
     showToast(`Role for ${u.displayName || u.email} updated to ${newRole.toUpperCase()}`, 'success');
   };
 
-  const handleDeleteUser = async (u: AppUser) => {
-    const isSelf = u.uid === currentUser?.uid || u.email.toLowerCase() === currentUser?.email?.toLowerCase();
-    if (isSelf) {
-      showToast('You cannot delete your own account', 'error');
+  const handleModalDeleteUser = async (u: AppUser) => {
+    if (!confirmDeleteUser) {
+      setConfirmDeleteUser(true);
       return;
     }
 
-    if (window.confirm(`Are you sure you want to permanently remove user "${u.email}"?`)) {
-      setUsers((prev) => prev.filter((usr) => usr.uid !== u.uid));
+    try {
+      setUsers((prev) => prev.filter((usr) => usr.uid !== u.uid && usr.email.toLowerCase() !== u.email.toLowerCase()));
       await UserService.delete(u.uid);
-      showToast(`User ${u.email} removed`, 'info');
+
+      ActivityService.log({
+        action: 'delete',
+        module: 'users',
+        description: `Deleted user account ${u.email} (${u.displayName || 'User'})`
+      });
+
+      showToast(`User account ${u.email} deleted successfully`, 'info');
+      setIsEditModalOpen(false);
+      setConfirmDeleteUser(false);
+    } catch (err: any) {
+      showToast('Error deleting user: ' + (err.message || ''), 'error');
+    }
+  };
+
+  const formatTimestamp = (ts: string) => {
+    try {
+      const d = new Date(ts);
+      return d.toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (_) {
+      return ts;
     }
   };
 
@@ -180,13 +266,16 @@ export const UsersPage: React.FC = () => {
               <th style={{ width: '220px' }}>User Name</th>
               <th style={{ width: '240px' }}>Email Address</th>
               <th style={{ width: '170px' }}>System Role</th>
-              <th style={{ width: '120px' }}>Status</th>
-              <th style={{ width: '200px', textAlign: 'center' }}>Actions</th>
+              <th style={{ width: '110px' }}>Status</th>
+              <th style={{ width: '230px', textAlign: 'center' }}>Actions & Audit</th>
             </tr>
           </thead>
           <tbody>
             {users.map((u) => {
               const isSelf = u.uid === currentUser?.uid || u.email.toLowerCase() === currentUser?.email?.toLowerCase();
+              const userActivityCount = allLogs.filter(
+                (l) => l.userId === u.uid || l.userEmail.toLowerCase() === u.email.toLowerCase()
+              ).length;
 
               return (
                 <tr key={u.uid} style={{ opacity: u.isActive ? 1 : 0.6 }}>
@@ -227,6 +316,23 @@ export const UsersPage: React.FC = () => {
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                      {/* View Logs Button */}
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => openUserLogsModal(u)}
+                        title={`View Activity History for ${u.displayName || u.email}`}
+                        style={{ padding: '3px 8px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <Activity size={12} color="var(--color-primary)" />
+                        <span>Logs</span>
+                        {userActivityCount > 0 && (
+                          <span style={{ fontSize: '9px', fontWeight: 800, padding: '0 4px', borderRadius: '10px', backgroundColor: '#F3F4F6', color: '#111' }}>
+                            {userActivityCount}
+                          </span>
+                        )}
+                      </button>
+
                       {/* Edit Button */}
                       <button
                         type="button"
@@ -266,7 +372,7 @@ export const UsersPage: React.FC = () => {
                           className="btn-icon"
                           title="Delete User"
                           style={{ color: 'var(--color-danger)', padding: '4px' }}
-                          onClick={() => handleDeleteUser(u)}
+                          onClick={() => setUserToDelete(u)}
                         >
                           <Trash2 size={13} />
                         </button>
@@ -502,25 +608,221 @@ export const UsersPage: React.FC = () => {
                 )}
               </div>
 
-              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary btn-sm" 
-                  onClick={() => setIsEditModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary btn-sm"
-                  disabled={saving}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                >
-                  <Save size={14} />
-                  <span>{saving ? 'Updating...' : 'Save Changes'}</span>
-                </button>
+              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  {!(editingUser.uid === currentUser?.uid || editingUser.email.toLowerCase() === currentUser?.email?.toLowerCase()) && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{
+                        backgroundColor: confirmDeleteUser ? 'var(--color-danger)' : undefined,
+                        color: confirmDeleteUser ? '#FFF' : 'var(--color-danger)',
+                        borderColor: confirmDeleteUser ? 'var(--color-danger)' : 'var(--color-border)',
+                        fontSize: '11px',
+                        padding: '6px 12px'
+                      }}
+                      onClick={() => handleModalDeleteUser(editingUser)}
+                    >
+                      <Trash2 size={13} />
+                      <span>{confirmDeleteUser ? 'Confirm Delete Account?' : 'Delete User'}</span>
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary btn-sm" 
+                    onClick={() => setIsEditModalOpen(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary btn-sm"
+                    disabled={saving}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Save size={14} />
+                    <span>{saving ? 'Updating...' : 'Save Changes'}</span>
+                  </button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          3. USER INDIVIDUAL ACTIVITY LOGS MODAL
+          ───────────────────────────────────────────────────────────── */}
+      {isUserLogsModalOpen && selectedUserForLogs && (
+        <div className="modal-backdrop" onClick={() => setIsUserLogsModalOpen(false)}>
+          <div className="modal-content" style={{ maxWidth: '640px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Activity size={18} color="var(--color-primary)" />
+                <div>
+                  <h2 className="modal-title">
+                    Activity Logs: {selectedUserForLogs.displayName || selectedUserForLogs.email}
+                  </h2>
+                  <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', margin: 0 }}>
+                    {selectedUserForLogs.email} • {selectedUserForLogs.role.toUpperCase()}
+                  </p>
+                </div>
+              </div>
+
+              <button 
+                type="button" 
+                onClick={() => setIsUserLogsModalOpen(false)} 
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ maxHeight: '420px', overflowY: 'auto', padding: '16px' }}>
+              {selectedUserLogs.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px', color: 'var(--color-text-muted)' }}>
+                  <Activity size={28} style={{ margin: '0 auto 6px', opacity: 0.4 }} />
+                  <div style={{ fontWeight: 700, fontSize: '12px' }}>No Activity Recorded Yet</div>
+                  <div style={{ fontSize: '11px' }}>This user has not performed any recorded operations yet.</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {selectedUserLogs.map((log) => (
+                    <div 
+                      key={log.id}
+                      style={{ 
+                        padding: '10px 12px', 
+                        backgroundColor: '#F9FAFB', 
+                        border: '1px solid #E5E7EB', 
+                        borderRadius: '4px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ 
+                            fontSize: '9.5px', 
+                            fontWeight: 800, 
+                            padding: '1px 6px', 
+                            borderRadius: '3px', 
+                            backgroundColor: log.action === 'create' ? '#D1FAE5' : log.action === 'delete' ? '#FEE2E2' : '#EFF6FF',
+                            color: log.action === 'create' ? '#065F46' : log.action === 'delete' ? '#991B1B' : '#1E40AF',
+                            textTransform: 'uppercase'
+                          }}>
+                            {log.action}
+                          </span>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: '#4B5563', textTransform: 'capitalize' }}>
+                            {log.module}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: '#6B7280' }}>
+                          <Clock size={11} />
+                          {formatTimestamp(log.timestamp)}
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: '11.5px', color: '#1F2937', fontWeight: 600 }}>
+                        {log.description}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Link 
+                to="/logs" 
+                className="btn btn-secondary btn-sm"
+                onClick={() => setIsUserLogsModalOpen(false)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
+              >
+                <span>View Full System Audit</span>
+                <ExternalLink size={12} />
+              </Link>
+
+              <button 
+                type="button" 
+                className="btn btn-primary btn-sm" 
+                onClick={() => setIsUserLogsModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          4. IN-APP DELETE CONFIRMATION MODAL
+          ───────────────────────────────────────────────────────────── */}
+      {userToDelete && (
+        <div className="modal-backdrop" onClick={() => setUserToDelete(null)}>
+          <div className="modal-content" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-danger)' }}>
+                <Trash2 size={16} />
+                Delete User Account
+              </h2>
+              <button 
+                type="button" 
+                onClick={() => setUserToDelete(null)} 
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <p style={{ fontSize: '13px', color: '#1F2937', margin: 0, lineHeight: 1.5 }}>
+                Are you sure you want to permanently delete user <b>{userToDelete.displayName || userToDelete.email}</b> (<code>{userToDelete.email}</code>)?
+              </p>
+              <div style={{ backgroundColor: '#FEF2F2', border: '1px solid #FEE2E2', borderRadius: '4px', padding: '10px', fontSize: '11px', color: '#991B1B' }}>
+                ⚠️ This will immediately revoke their access, delete their account profile, and remove all credentials.
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button 
+                type="button" 
+                className="btn btn-secondary btn-sm" 
+                onClick={() => setUserToDelete(null)}
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-primary btn-sm"
+                style={{ backgroundColor: 'var(--color-danger)', borderColor: 'var(--color-danger)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                onClick={async () => {
+                  const target = userToDelete;
+                  setUserToDelete(null);
+                  try {
+                    setUsers((prev) => prev.filter((usr) => usr.uid !== target.uid && usr.email.toLowerCase() !== target.email.toLowerCase()));
+                    await UserService.delete(target.uid);
+
+                    ActivityService.log({
+                      action: 'delete',
+                      module: 'users',
+                      description: `Deleted user account ${target.email} (${target.displayName || 'User'})`
+                    });
+
+                    showToast(`User account ${target.email} deleted successfully`, 'info');
+                  } catch (err: any) {
+                    showToast('Error deleting user: ' + (err.message || ''), 'error');
+                  }
+                }}
+              >
+                <Trash2 size={13} />
+                <span>Delete Account</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

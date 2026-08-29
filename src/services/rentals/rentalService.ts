@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import type { CarRental } from '../../types';
+import { ActivityService } from '../activity/activityService';
 
 const STORAGE_KEY = 'skylimo_local_rentals';
 
@@ -234,6 +235,14 @@ export const RentalService = {
 
     saveLocalRentals([newRental, ...list]);
 
+    // Activity Log
+    ActivityService.log({
+      action: 'create',
+      module: 'rentals',
+      description: `Created Car Rental Agreement ${newRental.agreementNumber || id} for ${newRental.customerName || 'Customer'} (${newRental.carType} #${newRental.carNumber} - ${newRental.rentalDays} Days)`,
+      details: { agreementNumber: newRental.agreementNumber, customer: newRental.customerName, carNumber: newRental.carNumber }
+    });
+
     try {
       await setDoc(doc(db, 'rentals', id), {
         ...newRental,
@@ -248,8 +257,17 @@ export const RentalService = {
 
   async update(id: string, updates: Partial<CarRental>): Promise<void> {
     const list = getLocalRentals();
+    const targetRental = list.find((r) => r.id === id);
     const updatedList = list.map((r) => (r.id === id ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r));
     saveLocalRentals(updatedList);
+
+    // Activity Log
+    ActivityService.log({
+      action: 'update',
+      module: 'rentals',
+      description: `Updated Car Rental Agreement ${targetRental?.agreementNumber || id} (${targetRental?.customerName || 'Customer'})`,
+      details: { agreementNumber: targetRental?.agreementNumber, updates }
+    });
 
     try {
       await updateDoc(doc(db, 'rentals', id), {
@@ -262,8 +280,18 @@ export const RentalService = {
   },
 
   async delete(id: string): Promise<void> {
-    const list = getLocalRentals().filter((r) => r.id !== id);
-    saveLocalRentals(list);
+    const list = getLocalRentals();
+    const targetRental = list.find((r) => r.id === id);
+    const filteredList = list.filter((r) => r.id !== id);
+    saveLocalRentals(filteredList);
+
+    // Activity Log
+    ActivityService.log({
+      action: 'delete',
+      module: 'rentals',
+      description: `Deleted Car Rental Agreement ${targetRental?.agreementNumber || id} (${targetRental?.customerName || 'Customer'})`,
+      details: { agreementNumber: targetRental?.agreementNumber }
+    });
 
     try {
       await deleteDoc(doc(db, 'rentals', id));

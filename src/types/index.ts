@@ -133,3 +133,20 @@ export interface SystemConfig {
   invoicePrefix: string;
   currencySymbol: string;
 }
+
+export type ActivityActionType = 'create' | 'update' | 'delete' | 'status_change' | 'login' | 'logout' | 'export';
+export type ActivityModule = 'bookings' | 'rentals' | 'drivers' | 'vehicles' | 'users' | 'auth' | 'settings';
+
+export interface ActivityLog {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  userRole: UserRole;
+  action: ActivityActionType;
+  module: ActivityModule;
+  description: string;
+  details?: Record<string, any>;
+  timestamp: string; // ISO String
+  createdAt?: any;
+}

@@ -2,6 +2,7 @@ import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, serverTimest
 import { db } from '../firebase/config';
 import type { Vehicle } from '../../types';
 import { INITIAL_VEHICLES } from '../../constants';
+import { ActivityService } from '../activity/activityService';
 
 const STORAGE_KEY = 'skylimo_local_vehicles';
 
@@ -74,6 +75,12 @@ export const VehicleService = {
     const list = getLocalVehicles();
     saveLocalVehicles([...list, newVehicle]);
 
+    ActivityService.log({
+      action: 'create',
+      module: 'vehicles',
+      description: `Added vehicle #${newVehicle.carNumber} (${newVehicle.carType})`
+    });
+
     try {
       await setDoc(doc(db, 'vehicles', id), {
         ...newVehicle,
@@ -86,8 +93,16 @@ export const VehicleService = {
   },
 
   async update(id: string, updates: Partial<Vehicle>): Promise<void> {
-    const list = getLocalVehicles().map((v) => (v.id === id ? { ...v, ...updates } : v));
-    saveLocalVehicles(list);
+    const list = getLocalVehicles();
+    const targetVehicle = list.find((v) => v.id === id);
+    const updatedList = list.map((v) => (v.id === id ? { ...v, ...updates } : v));
+    saveLocalVehicles(updatedList);
+
+    ActivityService.log({
+      action: 'update',
+      module: 'vehicles',
+      description: `Updated vehicle details for #${targetVehicle?.carNumber || id}`
+    });
 
     try {
       await updateDoc(doc(db, 'vehicles', id), {
@@ -98,12 +113,28 @@ export const VehicleService = {
   },
 
   async toggleActive(id: string, currentStatus: boolean): Promise<void> {
+    const list = getLocalVehicles();
+    const targetVehicle = list.find((v) => v.id === id);
     await this.update(id, { isActive: !currentStatus });
+
+    ActivityService.log({
+      action: 'status_change',
+      module: 'vehicles',
+      description: `${currentStatus ? 'Deactivated' : 'Activated'} vehicle #${targetVehicle?.carNumber || id}`
+    });
   },
 
   async delete(id: string): Promise<void> {
-    const list = getLocalVehicles().filter((v) => v.id !== id);
-    saveLocalVehicles(list);
+    const list = getLocalVehicles();
+    const targetVehicle = list.find((v) => v.id === id);
+    const filteredList = list.filter((v) => v.id !== id);
+    saveLocalVehicles(filteredList);
+
+    ActivityService.log({
+      action: 'delete',
+      module: 'vehicles',
+      description: `Deleted vehicle #${targetVehicle?.carNumber || id}`
+    });
 
     try {
       await deleteDoc(doc(db, 'vehicles', id));

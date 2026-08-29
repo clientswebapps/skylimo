@@ -13,6 +13,7 @@ import {
 import { db } from '../firebase/config';
 import type { Booking, BookingFilter } from '../../types';
 import { getTodayYMD } from '../../utils/dateUtils';
+import { ActivityService } from '../activity/activityService';
 
 const COLLECTION_NAME = 'bookings';
 
@@ -506,6 +507,14 @@ export const BookingService = {
     const current = getLocalBookings();
     saveLocalBookings([newBooking, ...current]);
 
+    // Activity Log
+    ActivityService.log({
+      action: 'create',
+      module: 'bookings',
+      description: `Added booking ${newBooking.invoice || id} for ${newBooking.customer || 'Customer'} (${newBooking.carType || 'Car'} | ${newBooking.from || ''} → ${newBooking.to || ''})`,
+      details: { invoice: newBooking.invoice, customer: newBooking.customer, carNumber: newBooking.carNumber }
+    });
+
     // 2. Background Firestore write
     setDoc(doc(db, COLLECTION_NAME, id), {
       ...newBooking,
@@ -522,6 +531,7 @@ export const BookingService = {
     // 1. Immediate local update and reactive notification (0ms)
     const userIdentifier = updates.updatedBy || getCurrentUserIdentifier();
     const current = getLocalBookings();
+    let targetBooking = current.find((b) => b.id === id);
     const updated = current.map((b) => {
       if (b.id === id) {
         return {
@@ -540,6 +550,14 @@ export const BookingService = {
     });
     saveLocalBookings(updated);
 
+    // Activity Log
+    ActivityService.log({
+      action: 'update',
+      module: 'bookings',
+      description: `Updated booking ${targetBooking?.invoice || id} (${targetBooking?.customer || 'Customer'})`,
+      details: { invoice: targetBooking?.invoice, updates }
+    });
+
     // 2. Background Firestore update
     updateDoc(doc(db, COLLECTION_NAME, id), {
       ...updates,
@@ -553,7 +571,16 @@ export const BookingService = {
   async delete(id: string): Promise<void> {
     // 1. Immediate local deletion and reactive notification (0ms)
     const current = getLocalBookings();
+    const targetBooking = current.find((b) => b.id === id);
     saveLocalBookings(current.filter((b) => b.id !== id));
+
+    // Activity Log
+    ActivityService.log({
+      action: 'delete',
+      module: 'bookings',
+      description: `Deleted booking ${targetBooking?.invoice || id} (${targetBooking?.customer || 'Customer'})`,
+      details: { invoice: targetBooking?.invoice }
+    });
 
     // 2. Background Firestore delete
     deleteDoc(doc(db, COLLECTION_NAME, id)).catch((err) => {

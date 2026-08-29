@@ -8,7 +8,7 @@ import {
   UserCheck, 
   Car, 
   Users, 
-  Settings, 
+  ShieldCheck,
   LogOut, 
   User as UserIcon, 
   X,
@@ -154,26 +154,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </NavLink>
 
         {isAdmin && (
-          <NavLink 
-            to="/users" 
-            onClick={handleNavClick}
-            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            title="Staff & Users"
-          >
-            <Users size={18} className="nav-item-icon" />
-            {!effectiveCollapsed && <span className="nav-item-label">Staff & Users</span>}
-          </NavLink>
-        )}
+          <>
+            <NavLink 
+              to="/users" 
+              onClick={handleNavClick}
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              title="Staff & Users"
+            >
+              <Users size={18} className="nav-item-icon" />
+              {!effectiveCollapsed && <span className="nav-item-label">Staff & Users</span>}
+            </NavLink>
 
-        <NavLink 
-          to="/settings" 
-          onClick={handleNavClick}
-          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-          title="Settings"
-        >
-          <Settings size={18} className="nav-item-icon" />
-          {!effectiveCollapsed && <span className="nav-item-label">Settings</span>}
-        </NavLink>
+            <NavLink 
+              to="/logs" 
+              onClick={handleNavClick}
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              title="Activity Logs"
+            >
+              <ShieldCheck size={18} className="nav-item-icon" />
+              {!effectiveCollapsed && <span className="nav-item-label">Activity Logs</span>}
+            </NavLink>
+          </>
+        )}
       </nav>
 
       {/* Footer User Info */}

@@ -265,8 +265,16 @@ export const UserService = {
   },
 
   async delete(uid: string): Promise<void> {
-    const list = getLocalUsers().filter((u) => u.uid !== uid);
-    saveLocalUsers(list);
+    const list = getLocalUsers();
+    const target = list.find((u) => u.uid === uid);
+    const filtered = list.filter((u) => u.uid !== uid && (target ? u.email.toLowerCase() !== target.email.toLowerCase() : true));
+    saveLocalUsers(filtered);
+
+    if (target?.email) {
+      const creds = getUserCredentials();
+      delete creds[target.email.toLowerCase()];
+      localStorage.setItem(CREDS_STORAGE_KEY, JSON.stringify(creds));
+    }
 
     try {
       await deleteDoc(doc(db, 'users', uid));
