@@ -754,6 +754,31 @@ export const UsersPage: React.FC = () => {
                       <div style={{ fontSize: '11.5px', color: '#1F2937', fontWeight: 600 }}>
                         {log.description}
                       </div>
+
+                      {log.details?.changes && Array.isArray(log.details.changes) && log.details.changes.length > 0 && (
+                        <div style={{ marginTop: '5px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {log.details.changes.map((ch: any, idx: number) => (
+                            <div 
+                              key={idx} 
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '9.5px',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                backgroundColor: '#F3F4F6',
+                                border: '1px solid #E5E7EB'
+                              }}
+                            >
+                              <span style={{ fontWeight: 700, color: '#4B5563' }}>{ch.label || ch.field}:</span>
+                              <span style={{ textDecoration: 'line-through', color: '#EF4444', opacity: 0.85 }}>{ch.oldVal || '(empty)'}</span>
+                              <span style={{ color: '#059669', fontWeight: 800 }}>➔</span>
+                              <span style={{ color: '#059669', fontWeight: 700 }}>{ch.newVal || '(empty)'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

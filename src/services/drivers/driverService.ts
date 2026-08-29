@@ -35,6 +35,56 @@ function saveLocalDrivers(drivers: Driver[]) {
   notifyDriverListeners();
 }
 
+function formatDriverFieldLabel(key: string): string {
+  const map: Record<string, string> = {
+    name: 'Driver Name',
+    phone: 'Phone Number',
+    isActive: 'Status',
+    notes: 'Operational Notes'
+  };
+  return map[key] || key;
+}
+
+function getDriverChanges(targetDriver?: Driver, updates: Partial<Driver> = {}): { summary: string; changes: Array<{ field: string; label: string; oldVal: string; newVal: string }> } {
+  if (!targetDriver) return { summary: '', changes: [] };
+  const changes: Array<{ field: string; label: string; oldVal: string; newVal: string }> = [];
+  const ignoredKeys = new Set(['id', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy']);
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (ignoredKeys.has(key) || value === undefined) continue;
+    const oldVal = (targetDriver as any)[key];
+    const oldStr = typeof oldVal === 'boolean' ? (oldVal ? 'Active' : 'Inactive') : (oldVal !== undefined && oldVal !== null ? String(oldVal).trim() : '');
+    const newStr = typeof value === 'boolean' ? (value ? 'Active' : 'Inactive') : (value !== undefined && value !== null ? String(value).trim() : '');
+    if (oldStr !== newStr) {
+      changes.push({
+        field: key,
+        label: formatDriverFieldLabel(key),
+        oldVal: oldStr || '(empty)',
+        newVal: newStr || '(empty)'
+      });
+    }
+  }
+
+  const changeSummaries = changes.map((c) => `${c.label}: "${c.oldVal}" → "${c.newVal}"`);
+  const summary = changeSummaries.length > 0 ? changeSummaries.join(', ') : 'Updated details';
+
+  return { summary, changes };
+}
+
+function sanitizeForFirestore(obj: any): any {
+  if (obj === undefined) return null;
+  if (obj === null) return null;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      cleaned[key] = sanitizeForFirestore(value);
+    }
+  }
+  return cleaned;
+}
+
 export const DriverService = {
   subscribe(callback: (drivers: Driver[]) => void): () => void {
     // 1. Immediately emit cached drivers (0ms)
@@ -115,20 +165,28 @@ export const DriverService = {
   async update(id: string, updates: Partial<Driver>): Promise<void> {
     const list = getLocalDrivers();
     const targetDriver = list.find((d) => d.id === id);
+    const diff = getDriverChanges(targetDriver, updates);
+
     const updatedList = list.map((d) => (d.id === id ? { ...d, ...updates } : d));
     saveLocalDrivers(updatedList);
 
     ActivityService.log({
       action: 'update',
       module: 'drivers',
-      description: `Updated driver details for ${targetDriver?.name || id}`
+      description: `Updated driver details for ${targetDriver?.name || id}: ${diff.summary}`,
+      details: {
+        driverName: targetDriver?.name,
+        changes: diff.changes,
+        updates
+      }
     });
 
     try {
-      await updateDoc(doc(db, 'drivers', id), {
+      const payload = sanitizeForFirestore({
         ...updates,
         updatedAt: serverTimestamp()
       });
+      await updateDoc(doc(db, 'drivers', id), payload);
     } catch (_) {}
   },
 

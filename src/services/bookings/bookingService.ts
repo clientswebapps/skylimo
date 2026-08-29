@@ -430,6 +430,56 @@ function sanitizeForFirestore(obj: any): any {
   return cleaned;
 }
 
+function formatBookingFieldLabel(key: string): string {
+  const map: Record<string, string> = {
+    date: 'Date',
+    time: 'Time',
+    flightNumber: 'Flight #',
+    driver: 'Driver',
+    customer: 'Customer Name',
+    passengerPhone: 'Phone',
+    carType: 'Car Type',
+    carNumber: 'Car #',
+    from: 'From Location',
+    to: 'To Location',
+    hotelRoom: 'Hotel/Room',
+    cash: 'Cash (BHD)',
+    card: 'Card (BHD)',
+    bankTransfer: 'Bank Transfer (BHD)',
+    credit: 'Credit (BHD)',
+    commission: 'Commission (BHD)',
+    status: 'Trip Status',
+    note: 'Notes'
+  };
+  return map[key] || key;
+}
+
+function getBookingChanges(targetBooking?: Booking, updates: Partial<Booking> = {}): { summary: string; changes: Array<{ field: string; label: string; oldVal: string; newVal: string }> } {
+  if (!targetBooking) return { summary: '', changes: [] };
+  const changes: Array<{ field: string; label: string; oldVal: string; newVal: string }> = [];
+  const ignoredKeys = new Set(['id', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy']);
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (ignoredKeys.has(key) || value === undefined) continue;
+    const oldVal = (targetBooking as any)[key];
+    const oldStr = oldVal !== undefined && oldVal !== null ? String(oldVal).trim() : '';
+    const newStr = value !== undefined && value !== null ? String(value).trim() : '';
+    if (oldStr !== newStr) {
+      changes.push({
+        field: key,
+        label: formatBookingFieldLabel(key),
+        oldVal: oldStr || '(empty)',
+        newVal: newStr || '(empty)'
+      });
+    }
+  }
+
+  const changeSummaries = changes.map((c) => `${c.label}: "${c.oldVal}" → "${c.newVal}"`);
+  const summary = changeSummaries.length > 0 ? changeSummaries.join(', ') : 'Updated details';
+
+  return { summary, changes };
+}
+
 export const BookingService = {
   subscribeByDate(selectedDate: string, callback: (bookings: Booking[]) => void): () => void {
     const local = getLocalBookings().filter((b) => b.date === selectedDate);
@@ -554,6 +604,8 @@ export const BookingService = {
     const userIdentifier = updates.updatedBy || getCurrentUserIdentifier();
     const current = getLocalBookings();
     let targetBooking = current.find((b) => b.id === id);
+    const diff = getBookingChanges(targetBooking, updates);
+
     const updated = current.map((b) => {
       if (b.id === id) {
         return {
@@ -572,12 +624,17 @@ export const BookingService = {
     });
     saveLocalBookings(updated);
 
-    // Activity Log
+    // Activity Log with detailed changes
     ActivityService.log({
       action: 'update',
       module: 'bookings',
-      description: `Updated booking ${targetBooking?.invoice || id} (${targetBooking?.customer || 'Customer'})`,
-      details: { invoice: targetBooking?.invoice, updates }
+      description: `Updated booking ${targetBooking?.invoice || id} (${targetBooking?.customer || 'Customer'}): ${diff.summary}`,
+      details: { 
+        invoice: targetBooking?.invoice, 
+        customer: targetBooking?.customer,
+        changes: diff.changes,
+        updates 
+      }
     });
 
     // 2. Background Firestore update

@@ -35,6 +35,58 @@ function saveLocalVehicles(vehicles: Vehicle[]) {
   notifyVehicleListeners();
 }
 
+function formatVehicleFieldLabel(key: string): string {
+  const map: Record<string, string> = {
+    carNumber: 'Plate #',
+    carType: 'Model/Make',
+    category: 'Category',
+    dailyRate: 'Daily Rate (BHD)',
+    isActive: 'Status',
+    notes: 'Operational Notes'
+  };
+  return map[key] || key;
+}
+
+function getVehicleChanges(targetVehicle?: Vehicle, updates: Partial<Vehicle> = {}): { summary: string; changes: Array<{ field: string; label: string; oldVal: string; newVal: string }> } {
+  if (!targetVehicle) return { summary: '', changes: [] };
+  const changes: Array<{ field: string; label: string; oldVal: string; newVal: string }> = [];
+  const ignoredKeys = new Set(['id', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy']);
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (ignoredKeys.has(key) || value === undefined) continue;
+    const oldVal = (targetVehicle as any)[key];
+    const oldStr = typeof oldVal === 'boolean' ? (oldVal ? 'Active' : 'Inactive') : (oldVal !== undefined && oldVal !== null ? String(oldVal).trim() : '');
+    const newStr = typeof value === 'boolean' ? (value ? 'Active' : 'Inactive') : (value !== undefined && value !== null ? String(value).trim() : '');
+    if (oldStr !== newStr) {
+      changes.push({
+        field: key,
+        label: formatVehicleFieldLabel(key),
+        oldVal: oldStr || '(empty)',
+        newVal: newStr || '(empty)'
+      });
+    }
+  }
+
+  const changeSummaries = changes.map((c) => `${c.label}: "${c.oldVal}" → "${c.newVal}"`);
+  const summary = changeSummaries.length > 0 ? changeSummaries.join(', ') : 'Updated details';
+
+  return { summary, changes };
+}
+
+function sanitizeForFirestore(obj: any): any {
+  if (obj === undefined) return null;
+  if (obj === null) return null;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      cleaned[key] = sanitizeForFirestore(value);
+    }
+  }
+  return cleaned;
+}
+
 export const VehicleService = {
   subscribe(callback: (vehicles: Vehicle[]) => void): () => void {
     // 1. Immediately emit cached vehicles (0ms)
@@ -132,20 +184,29 @@ export const VehicleService = {
   async update(id: string, updates: Partial<Vehicle>): Promise<void> {
     const list = getLocalVehicles();
     const targetVehicle = list.find((v) => v.id === id);
+    const diff = getVehicleChanges(targetVehicle, updates);
+
     const updatedList = list.map((v) => (v.id === id ? { ...v, ...updates } : v));
     saveLocalVehicles(updatedList);
 
     ActivityService.log({
       action: 'update',
       module: 'vehicles',
-      description: `Updated vehicle details for #${targetVehicle?.carNumber || id}`
+      description: `Updated vehicle details for #${targetVehicle?.carNumber || id}: ${diff.summary}`,
+      details: {
+        carNumber: targetVehicle?.carNumber,
+        carType: targetVehicle?.carType,
+        changes: diff.changes,
+        updates
+      }
     });
 
     try {
-      await updateDoc(doc(db, 'vehicles', id), {
+      const payload = sanitizeForFirestore({
         ...updates,
         updatedAt: serverTimestamp()
       });
+      await updateDoc(doc(db, 'vehicles', id), payload);
     } catch (_) {}
   },
 

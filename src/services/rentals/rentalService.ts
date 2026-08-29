@@ -167,6 +167,66 @@ function saveLocalRentals(rentals: CarRental[]) {
   notifyRentalListeners();
 }
 
+function formatRentalFieldLabel(key: string): string {
+  const map: Record<string, string> = {
+    agreementNumber: 'Agreement #',
+    customerName: 'Customer Name',
+    customerPhone: 'Customer Phone',
+    carType: 'Car Type',
+    carNumber: 'Car #',
+    rentalDays: 'Rental Days',
+    startDate: 'Start Date',
+    endDate: 'End Date',
+    dailyRate: 'Daily Rate (BHD)',
+    totalAmount: 'Total Amount (BHD)',
+    advancePayment: 'Advance Payment (BHD)',
+    depositAmount: 'Deposit (BHD)',
+    paymentStatus: 'Payment Status',
+    notes: 'Notes'
+  };
+  return map[key] || key;
+}
+
+function getRentalChanges(targetRental?: CarRental, updates: Partial<CarRental> = {}): { summary: string; changes: Array<{ field: string; label: string; oldVal: string; newVal: string }> } {
+  if (!targetRental) return { summary: '', changes: [] };
+  const changes: Array<{ field: string; label: string; oldVal: string; newVal: string }> = [];
+  const ignoredKeys = new Set(['id', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy']);
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (ignoredKeys.has(key) || value === undefined) continue;
+    const oldVal = (targetRental as any)[key];
+    const oldStr = oldVal !== undefined && oldVal !== null ? String(oldVal).trim() : '';
+    const newStr = value !== undefined && value !== null ? String(value).trim() : '';
+    if (oldStr !== newStr) {
+      changes.push({
+        field: key,
+        label: formatRentalFieldLabel(key),
+        oldVal: oldStr || '(empty)',
+        newVal: newStr || '(empty)'
+      });
+    }
+  }
+
+  const changeSummaries = changes.map((c) => `${c.label}: "${c.oldVal}" → "${c.newVal}"`);
+  const summary = changeSummaries.length > 0 ? changeSummaries.join(', ') : 'Updated details';
+
+  return { summary, changes };
+}
+
+function sanitizeForFirestore(obj: any): any {
+  if (obj === undefined) return null;
+  if (obj === null) return null;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      cleaned[key] = sanitizeForFirestore(value);
+    }
+  }
+  return cleaned;
+}
+
 export const RentalService = {
   subscribe(callback: (rentals: CarRental[]) => void): () => void {
     callback(getLocalRentals());
@@ -265,6 +325,8 @@ export const RentalService = {
   async update(id: string, updates: Partial<CarRental>): Promise<void> {
     const list = getLocalRentals();
     const targetRental = list.find((r) => r.id === id);
+    const diff = getRentalChanges(targetRental, updates);
+
     const updatedList = list.map((r) => (r.id === id ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r));
     saveLocalRentals(updatedList);
 
@@ -272,15 +334,21 @@ export const RentalService = {
     ActivityService.log({
       action: 'update',
       module: 'rentals',
-      description: `Updated Car Rental Agreement ${targetRental?.agreementNumber || id} (${targetRental?.customerName || 'Customer'})`,
-      details: { agreementNumber: targetRental?.agreementNumber, updates }
+      description: `Updated Car Rental Agreement ${targetRental?.agreementNumber || id} (${targetRental?.customerName || 'Customer'}): ${diff.summary}`,
+      details: { 
+        agreementNumber: targetRental?.agreementNumber, 
+        customer: targetRental?.customerName,
+        changes: diff.changes,
+        updates 
+      }
     });
 
     try {
-      await updateDoc(doc(db, 'rentals', id), {
+      const payload = sanitizeForFirestore({
         ...updates,
         updatedAt: serverTimestamp()
       });
+      await updateDoc(doc(db, 'rentals', id), payload);
     } catch (e) {
       console.warn('Firestore rental update queued:', e);
     }
