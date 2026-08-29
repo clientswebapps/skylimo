@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, onSnapshot, query, orderBy, limit, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import type { ActivityLog, ActivityActionType, ActivityModule, AppUser } from '../../types';
 
@@ -107,12 +107,13 @@ function getCurrentUserFromStorage(): { id: string; email: string; name: string;
     const saved = localStorage.getItem('skylimo_user_session') || localStorage.getItem('skylimo_user');
     if (saved) {
       const parsed = JSON.parse(saved);
-      const email = parsed.email || '';
+      const email = (parsed.email || '').trim().toLowerCase();
+      const role = email === 'admin@skylimobh.com' ? 'admin' : (parsed.role === 'admin' ? 'staff' : (parsed.role || 'staff'));
       return {
         id: parsed.uid || parsed.id || 'usr-staff-1',
-        email: email || (parsed.role === 'admin' ? 'admin@skylimobh.com' : 'staff1@skylimobh.com'),
-        name: parsed.displayName || parsed.name || (email ? email.split('@')[0] : 'User'),
-        role: (parsed.role === 'admin' ? 'admin' : 'staff') as 'admin' | 'staff'
+        email: email || 'staff1@skylimobh.com',
+        name: parsed.displayName || parsed.name || (email ? email.split('@')[0] : 'Staff'),
+        role: role as 'admin' | 'staff'
       };
     }
   } catch (_) {}
@@ -141,22 +142,26 @@ export const ActivityService = {
 
     let unsubscribeFirestore = () => {};
     try {
-      const q = query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc'), limit(300));
       unsubscribeFirestore = onSnapshot(
-        q,
+        collection(db, 'activity_logs'),
         (snapshot) => {
           if (!snapshot.empty) {
             const list: ActivityLog[] = snapshot.docs.map((d) => ({
               id: d.id,
               ...(d.data() as Omit<ActivityLog, 'id'>)
             }));
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-            notifyLogListeners();
+            // Reliable descending sort by timestamp
+            list.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+            saveLocalActivityLogs(list);
           }
         },
-        () => {}
+        (err) => {
+          console.warn('Activity logs Firestore subscription note:', err);
+        }
       );
-    } catch (_) {}
+    } catch (e) {
+      console.warn('Activity logs subscription error:', e);
+    }
 
     return () => {
       logListeners.delete(callback);
@@ -218,8 +223,8 @@ export const ActivityService = {
     };
 
     const currentList = getLocalActivityLogs();
-    // Keep most recent 500 logs
-    const updatedList = [newLog, ...currentList].slice(0, 500);
+    // Prepend new log and keep top 500
+    const updatedList = [newLog, ...currentList.filter((l) => l.id !== id)].slice(0, 500);
     saveLocalActivityLogs(updatedList);
 
     try {
@@ -227,7 +232,9 @@ export const ActivityService = {
         ...newLog,
         createdAt: serverTimestamp()
       });
-    } catch (_) {}
+    } catch (e) {
+      console.warn('Activity log Firestore write note:', e);
+    }
 
     return newLog;
   },
