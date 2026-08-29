@@ -1,8 +1,9 @@
-import { collection, doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, getDocs, writeBatch, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import type { ActivityLog, ActivityActionType, ActivityModule, AppUser } from '../../types';
 
 const STORAGE_KEY = 'skylimo_local_activity_logs';
+const MAX_LOGS_LIMIT = 500;
 
 const INITIAL_LOGS: ActivityLog[] = [
   {
@@ -98,7 +99,7 @@ function notifyLogListeners() {
 }
 
 function saveLocalActivityLogs(logs: ActivityLog[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(logs.slice(0, MAX_LOGS_LIMIT)));
   notifyLogListeners();
 }
 
@@ -140,6 +141,21 @@ function sanitizeForFirestore(obj: any): any {
   return cleaned;
 }
 
+// Background auto-pruning for logs beyond the 500 limit
+async function pruneOldLogsFromFirestore(list: ActivityLog[]) {
+  if (list.length <= MAX_LOGS_LIMIT) return;
+  const excessLogs = list.slice(MAX_LOGS_LIMIT);
+  try {
+    for (const oldLog of excessLogs) {
+      if (oldLog && oldLog.id) {
+        await deleteDoc(doc(db, 'activity_logs', oldLog.id));
+      }
+    }
+  } catch (err) {
+    console.warn('Auto-pruning old activity logs note:', err);
+  }
+}
+
 export const ActivityService = {
   subscribe(callback: (logs: ActivityLog[]) => void): () => void {
     // 1. Immediate local cache emission (0ms)
@@ -166,7 +182,14 @@ export const ActivityService = {
             }));
             // Reliable descending sort by timestamp
             list.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
-            saveLocalActivityLogs(list);
+            
+            const top500 = list.slice(0, MAX_LOGS_LIMIT);
+            saveLocalActivityLogs(top500);
+
+            // Auto-delete succeeding excess logs from Firestore
+            if (list.length > MAX_LOGS_LIMIT) {
+              pruneOldLogsFromFirestore(list);
+            }
           }
         },
         (err) => {
@@ -237,9 +260,9 @@ export const ActivityService = {
     };
 
     const currentList = getLocalActivityLogs();
-    // Prepend new log and keep top 500
-    const updatedList = [newLog, ...currentList.filter((l) => l.id !== id)].slice(0, 500);
-    saveLocalActivityLogs(updatedList);
+    const combined = [newLog, ...currentList.filter((l) => l.id !== id)];
+    const top500 = combined.slice(0, MAX_LOGS_LIMIT);
+    saveLocalActivityLogs(top500);
 
     try {
       const payload = sanitizeForFirestore({
@@ -247,11 +270,47 @@ export const ActivityService = {
         createdAt: serverTimestamp()
       });
       await setDoc(doc(db, 'activity_logs', id), payload);
+
+      // Auto-prune any overflow logs
+      if (combined.length > MAX_LOGS_LIMIT) {
+        pruneOldLogsFromFirestore(combined);
+      }
     } catch (e) {
       console.warn('Activity log Firestore write note:', e);
     }
 
     return newLog;
+  },
+
+  async clearAllLogs(adminUser?: AppUser | null): Promise<void> {
+    // 1. Clear local cache
+    saveLocalActivityLogs([]);
+
+    // 2. Batch delete all documents in Firestore collection 'activity_logs'
+    try {
+      const snap = await getDocs(collection(db, 'activity_logs'));
+      const batchSize = 400;
+      const docs = snap.docs;
+      for (let i = 0; i < docs.length; i += batchSize) {
+        const batch = writeBatch(db);
+        const chunk = docs.slice(i, i + batchSize);
+        chunk.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+    } catch (e) {
+      console.warn('Error clearing activity logs in Firestore:', e);
+    }
+
+    // 3. Add clean audit marker that logs were cleared
+    const adminEmail = adminUser?.email || 'admin@skylimobh.com';
+    const adminName = adminUser?.displayName || 'Administrator';
+    
+    await this.log({
+      action: 'delete',
+      module: 'users',
+      description: `All activity logs were cleared and reset by ${adminName} (${adminEmail})`,
+      user: adminUser
+    });
   },
 
   async clearLocalLogs(): Promise<void> {

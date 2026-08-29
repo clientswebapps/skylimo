@@ -15,25 +15,47 @@ import {
   PlusCircle, 
   Edit3, 
   CheckCircle2, 
-  Clock 
+  Clock,
+  X 
 } from 'lucide-react';
 import type { ActivityLog, ActivityActionType, ActivityModule } from '../../types';
 import { ActivityService } from '../../services/activity/activityService';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 
 export const ActivityLogsPage: React.FC = () => {
+  const { user, isAdmin } = useAuth();
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<string>('All');
   const [selectedModule, setSelectedModule] = useState<string>('All');
   const [selectedAction, setSelectedAction] = useState<string>('All');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const { showToast } = useToast();
 
   useEffect(() => {
     return ActivityService.subscribe(setLogs);
   }, []);
+
+  const handleConfirmClearAllLogs = async () => {
+    if (!isAdmin) {
+      showToast('Action restricted: Only Administrators can clear activity logs.', 'error');
+      return;
+    }
+    setIsClearing(true);
+    try {
+      await ActivityService.clearAllLogs(user);
+      showToast('All activity logs have been cleared and reset successfully.', 'success');
+      setIsClearConfirmOpen(false);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to clear activity logs', 'error');
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   // Distinct user options for filtering
   const userOptions = useMemo(() => {
@@ -258,6 +280,20 @@ export const ActivityLogsPage: React.FC = () => {
             <Download size={13} />
             <span className="hide-mobile">Export CSV</span>
           </button>
+
+          {isAdmin && (
+            <button 
+              type="button" 
+              className="btn btn-danger btn-sm" 
+              onClick={() => setIsClearConfirmOpen(true)}
+              disabled={logs.length === 0 || isClearing}
+              title="Clear all activity logs (Admin only)"
+              style={{ backgroundColor: '#DC2626', color: '#FFFFFF', border: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}
+            >
+              <Trash2 size={13} />
+              <span>Clear All Logs</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -495,6 +531,57 @@ export const ActivityLogsPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Admin Clear All Logs Confirmation Modal */}
+      {isClearConfirmOpen && (
+        <div className="modal-backdrop" onClick={() => !isClearing && setIsClearConfirmOpen(false)}>
+          <div className="modal-content" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-danger)' }}>
+                <Trash2 size={16} />
+                Clear All Activity Logs
+              </h2>
+              <button 
+                type="button" 
+                onClick={() => !isClearing && setIsClearConfirmOpen(false)} 
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                disabled={isClearing}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <p style={{ fontSize: '13px', color: '#1F2937', margin: 0, lineHeight: 1.5 }}>
+                Are you sure you want to permanently delete all <b>{logs.length}</b> activity log records from both the app and the cloud database?
+              </p>
+              <div style={{ backgroundColor: '#FEF2F2', border: '1px solid #FEE2E2', borderRadius: '4px', padding: '10px', fontSize: '11.5px', color: '#991B1B' }}>
+                ⚠️ <b>Security Notice:</b> This action is restricted to Administrators only and will permanently reset the system activity audit trail.
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button 
+                type="button" 
+                className="btn btn-secondary btn-sm" 
+                onClick={() => setIsClearConfirmOpen(false)}
+                disabled={isClearing}
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-danger btn-sm" 
+                onClick={handleConfirmClearAllLogs}
+                disabled={isClearing}
+                style={{ backgroundColor: '#DC2626', color: '#FFFFFF', border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                {isClearing ? 'Clearing Logs...' : 'Yes, Delete All Logs'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
