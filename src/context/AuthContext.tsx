@@ -45,13 +45,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const userSnap = await getDoc(userDocRef);
             if (userSnap.exists()) {
               const data = userSnap.data() as AppUser;
-              setUser(data);
-              localStorage.setItem('skylimo_user_session', JSON.stringify(data));
+              const cleanEmail = (data.email || fbUser.email || '').toLowerCase();
+              const effectiveRole: UserRole = cleanEmail === 'admin@skylimobh.com' ? 'admin' : (data.role === 'admin' ? 'staff' : (data.role || 'staff'));
+              const normalizedData: AppUser = { ...data, role: effectiveRole };
+              setUser(normalizedData);
+              localStorage.setItem('skylimo_user_session', JSON.stringify(normalizedData));
             } else {
               // Fetch from local users list or create profile
               const cleanEmail = (fbUser.email || '').toLowerCase();
               const localMatch = getLocalUsers().find((u) => u.email.toLowerCase() === cleanEmail);
-              const role: UserRole = localMatch?.role || (cleanEmail === 'admin@skylimobh.com' ? 'admin' : 'staff');
+              const role: UserRole = cleanEmail === 'admin@skylimobh.com' ? 'admin' : 'staff';
               const displayName = localMatch?.displayName || fbUser.displayName || cleanEmail.split('@')[0] || 'User';
 
               const newUser: AppUser = {
@@ -109,7 +112,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error('This account has been deactivated. Please contact an administrator.');
       }
 
-      if (credential?.user) {
+        if (credential?.user) {
         const userDocRef = doc(db, 'users', credential.user.uid);
         let appUserData: AppUser;
         
@@ -118,7 +121,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (userSnap.exists()) {
             appUserData = userSnap.data() as AppUser;
           } else {
-            const role: UserRole = matchedUser?.role || (cleanEmail === 'admin@skylimobh.com' ? 'admin' : 'staff');
+            const role: UserRole = cleanEmail === 'admin@skylimobh.com' ? 'admin' : 'staff';
             const displayName = matchedUser?.displayName || credential.user.displayName || cleanEmail.split('@')[0];
             appUserData = {
               uid: credential.user.uid,
@@ -132,7 +135,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await setDoc(userDocRef, appUserData);
           }
         } catch (dbErr) {
-          const role: UserRole = matchedUser?.role || (cleanEmail === 'admin@skylimobh.com' ? 'admin' : 'staff');
+          const role: UserRole = cleanEmail === 'admin@skylimobh.com' ? 'admin' : 'staff';
           const displayName = matchedUser?.displayName || cleanEmail.split('@')[0];
           appUserData = {
             uid: credential.user.uid,
@@ -142,6 +145,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             isActive: true
           };
         }
+
+        // Force role based on email
+        appUserData.role = cleanEmail === 'admin@skylimobh.com' ? 'admin' : (appUserData.role === 'admin' ? 'staff' : (appUserData.role || 'staff'));
 
         if (!appUserData.isActive) {
           throw new Error('This account has been deactivated. Please contact an administrator.');
@@ -161,7 +167,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Verification via local credentials store
       if (creds[cleanEmail] && creds[cleanEmail] === pass) {
-        const role: UserRole = matchedUser?.role || (cleanEmail === 'admin@skylimobh.com' ? 'admin' : 'staff');
+        const role: UserRole = cleanEmail === 'admin@skylimobh.com' ? 'admin' : 'staff';
         const displayName = matchedUser?.displayName || (cleanEmail === 'admin@skylimobh.com' ? 'Administrator' : 'Staff 1');
         const localUser: AppUser = {
           uid: matchedUser?.uid || ('usr-' + Date.now()),
@@ -211,6 +217,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem('skylimo_user_session');
   };
 
+  const isRoleAdmin = Boolean(
+    user && 
+    user.role === 'admin' && 
+    (user.email || '').toLowerCase() === 'admin@skylimobh.com'
+  );
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -218,7 +230,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       loading,
       signIn,
       signOut,
-      isAdmin: user?.role === 'admin'
+      isAdmin: isRoleAdmin
     }}>
       {children}
     </AuthContext.Provider>

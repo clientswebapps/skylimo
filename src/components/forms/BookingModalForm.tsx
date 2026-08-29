@@ -3,6 +3,7 @@ import { X, Save, Trash2 } from 'lucide-react';
 import type { Booking, BookingStatus, Driver, Vehicle } from '../../types';
 import { DEFAULT_CAR_TYPES, STATUS_OPTIONS } from '../../constants';
 import { getTodayYMD } from '../../utils/dateUtils';
+import { useAuth } from '../../context/AuthContext';
 
 interface BookingModalFormProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export const BookingModalForm: React.FC<BookingModalFormProps> = ({
   vehicles,
   defaultDate
 }) => {
+  const { isAdmin } = useAuth();
   const [formData, setFormData] = useState<Omit<Booking, 'id'>>({
     invoice: '',
     date: defaultDate || getTodayYMD(),
@@ -54,7 +56,7 @@ export const BookingModalForm: React.FC<BookingModalFormProps> = ({
   const [error, setError] = useState('');
 
   const handleConfirmDelete = async () => {
-    if (!initialData || !onDelete) return;
+    if (!isAdmin || !initialData || !onDelete) return;
     setDeleting(true);
     setError('');
     try {
@@ -452,7 +454,7 @@ export const BookingModalForm: React.FC<BookingModalFormProps> = ({
 
           <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
             <div>
-              {initialData && onDelete && !isConfirmingDelete && (
+              {isAdmin && initialData && onDelete && !isConfirmingDelete && (
                 <button 
                   type="button" 
                   className="btn btn-danger btn-sm" 
@@ -466,7 +468,7 @@ export const BookingModalForm: React.FC<BookingModalFormProps> = ({
                 </button>
               )}
 
-              {initialData && onDelete && isConfirmingDelete && (
+              {isAdmin && initialData && onDelete && isConfirmingDelete && (
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#FEF2F2', padding: '3px 8px', borderRadius: '4px', border: '1px solid #FCA5A5' }}>
                   <span style={{ fontSize: '10px', color: '#991B1B', fontWeight: 700 }}>
                     Delete?

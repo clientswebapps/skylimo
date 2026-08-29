@@ -4,6 +4,7 @@ import type { CarRental, RentalPaymentStatus, Vehicle } from '../../types';
 import { RentalService } from '../../services/rentals/rentalService';
 import { VehicleService } from '../../services/vehicles/vehicleService';
 import { DEFAULT_CAR_TYPES } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
 
 interface RentalModalFormProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export const RentalModalForm: React.FC<RentalModalFormProps> = ({
   onSave,
   onDelete
 }) => {
+  const { isAdmin } = useAuth();
   const isEditing = !!rental;
 
   const [rentalVehicles, setRentalVehicles] = useState<Vehicle[]>([]);
@@ -184,7 +186,7 @@ export const RentalModalForm: React.FC<RentalModalFormProps> = ({
   };
 
   const handleDeleteClick = async () => {
-    if (!isEditing || !rental || !onDelete) return;
+    if (!isAdmin || !isEditing || !rental || !onDelete) return;
 
     if (!confirmDelete) {
       setConfirmDelete(true);
@@ -544,7 +546,7 @@ export const RentalModalForm: React.FC<RentalModalFormProps> = ({
           {/* Modal Footer */}
           <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#F9FAFB', borderTop: '1px solid #E5E7EB' }}>
             <div>
-              {isEditing && onDelete && (
+              {isAdmin && isEditing && onDelete && (
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
