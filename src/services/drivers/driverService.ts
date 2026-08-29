@@ -41,18 +41,56 @@ export const DriverService = {
     callback(getLocalDrivers());
     driverListeners.add(callback);
 
+    // Cross-tab sync
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) {
+        callback(getLocalDrivers());
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
     let unsubscribeFirestore = () => {};
     try {
       unsubscribeFirestore = onSnapshot(
         collection(db, 'drivers'),
-        (snapshot) => {
+        async (snapshot) => {
           if (!snapshot.empty) {
             const list: Driver[] = snapshot.docs.map((d) => ({
               id: d.id,
               ...(d.data() as Omit<Driver, 'id'>)
             }));
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-            notifyDriverListeners();
+
+            // If Firestore only has partial records, merge with INITIAL_DRIVERS and seed missing records
+            const existingNames = new Set(list.map((d) => (d.name || '').toUpperCase().trim()));
+            const missingSeeds = INITIAL_DRIVERS.filter((seed) => !existingNames.has(seed.name.toUpperCase().trim()));
+
+            if (missingSeeds.length > 0 && list.length < INITIAL_DRIVERS.length) {
+              for (const seed of missingSeeds) {
+                try {
+                  await setDoc(doc(db, 'drivers', seed.id), {
+                    ...seed,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                  });
+                } catch (_) {}
+              }
+              const merged = [...list, ...missingSeeds];
+              saveLocalDrivers(merged);
+            } else {
+              saveLocalDrivers(list);
+            }
+          } else {
+            // Seed all initial drivers if collection is empty
+            for (const seed of INITIAL_DRIVERS) {
+              try {
+                await setDoc(doc(db, 'drivers', seed.id), {
+                  ...seed,
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp()
+                });
+              } catch (_) {}
+            }
+            saveLocalDrivers(INITIAL_DRIVERS);
           }
         },
         () => {}
@@ -61,6 +99,7 @@ export const DriverService = {
 
     return () => {
       driverListeners.delete(callback);
+      window.removeEventListener('storage', handleStorage);
       unsubscribeFirestore();
     };
   },

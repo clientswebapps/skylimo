@@ -41,18 +41,56 @@ export const VehicleService = {
     callback(getLocalVehicles());
     vehicleListeners.add(callback);
 
+    // Cross-tab sync
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) {
+        callback(getLocalVehicles());
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
     let unsubscribeFirestore = () => {};
     try {
       unsubscribeFirestore = onSnapshot(
         collection(db, 'vehicles'),
-        (snapshot) => {
+        async (snapshot) => {
           if (!snapshot.empty) {
             const list: Vehicle[] = snapshot.docs.map((d) => ({
               id: d.id,
               ...(d.data() as Omit<Vehicle, 'id'>)
             }));
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-            notifyVehicleListeners();
+
+            // If Firestore only has partial records, merge with INITIAL_VEHICLES and seed missing records
+            const existingNumbers = new Set(list.map((v) => (v.carNumber || '').trim()));
+            const missingSeeds = INITIAL_VEHICLES.filter((seed) => !existingNumbers.has(seed.carNumber.trim()));
+
+            if (missingSeeds.length > 0 && list.length < INITIAL_VEHICLES.length) {
+              for (const seed of missingSeeds) {
+                try {
+                  await setDoc(doc(db, 'vehicles', seed.id), {
+                    ...seed,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                  });
+                } catch (_) {}
+              }
+              const merged = [...list, ...missingSeeds];
+              saveLocalVehicles(merged);
+            } else {
+              saveLocalVehicles(list);
+            }
+          } else {
+            // Seed all initial vehicles if collection is empty
+            for (const seed of INITIAL_VEHICLES) {
+              try {
+                await setDoc(doc(db, 'vehicles', seed.id), {
+                  ...seed,
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp()
+                });
+              } catch (_) {}
+            }
+            saveLocalVehicles(INITIAL_VEHICLES);
           }
         },
         () => {}
@@ -61,6 +99,7 @@ export const VehicleService = {
 
     return () => {
       vehicleListeners.delete(callback);
+      window.removeEventListener('storage', handleStorage);
       unsubscribeFirestore();
     };
   },
