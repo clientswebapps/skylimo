@@ -126,6 +126,20 @@ function getCurrentUserFromStorage(): { id: string; email: string; name: string;
   };
 }
 
+function sanitizeForFirestore(obj: any): any {
+  if (obj === undefined) return null;
+  if (obj === null) return null;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      cleaned[key] = sanitizeForFirestore(value);
+    }
+  }
+  return cleaned;
+}
+
 export const ActivityService = {
   subscribe(callback: (logs: ActivityLog[]) => void): () => void {
     // 1. Immediate local cache emission (0ms)
@@ -211,14 +225,14 @@ export const ActivityService = {
     const id = 'act-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
     const newLog: ActivityLog = {
       id,
-      userId: userInfo.id,
-      userEmail: userInfo.email,
-      userName: userInfo.name,
-      userRole: userInfo.role,
+      userId: userInfo.id || 'usr-staff-1',
+      userEmail: userInfo.email || 'staff1@skylimobh.com',
+      userName: userInfo.name || 'Staff',
+      userRole: userInfo.role || 'staff',
       action: params.action,
       module: params.module,
-      description: params.description,
-      details: params.details,
+      description: params.description || '',
+      details: sanitizeForFirestore(params.details || {}),
       timestamp: new Date().toISOString()
     };
 
@@ -228,10 +242,11 @@ export const ActivityService = {
     saveLocalActivityLogs(updatedList);
 
     try {
-      await setDoc(doc(db, 'activity_logs', id), {
+      const payload = sanitizeForFirestore({
         ...newLog,
         createdAt: serverTimestamp()
       });
+      await setDoc(doc(db, 'activity_logs', id), payload);
     } catch (e) {
       console.warn('Activity log Firestore write note:', e);
     }

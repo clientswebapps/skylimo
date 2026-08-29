@@ -416,6 +416,20 @@ function getCurrentUserIdentifier(): string {
   return 'Staff';
 }
 
+function sanitizeForFirestore(obj: any): any {
+  if (obj === undefined) return null;
+  if (obj === null) return null;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      cleaned[key] = sanitizeForFirestore(value);
+    }
+  }
+  return cleaned;
+}
+
 export const BookingService = {
   subscribeByDate(selectedDate: string, callback: (bookings: Booking[]) => void): () => void {
     const local = getLocalBookings().filter((b) => b.date === selectedDate);
@@ -523,11 +537,12 @@ export const BookingService = {
     });
 
     // 2. Background Firestore write
-    setDoc(doc(db, COLLECTION_NAME, id), {
+    const payload = sanitizeForFirestore({
       ...newBooking,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    }).catch((err) => {
+    });
+    setDoc(doc(db, COLLECTION_NAME, id), payload).catch((err) => {
       console.warn('Firestore write queued locally:', err.message);
     });
 
@@ -566,11 +581,12 @@ export const BookingService = {
     });
 
     // 2. Background Firestore update
-    updateDoc(doc(db, COLLECTION_NAME, id), {
+    const updatePayload = sanitizeForFirestore({
       ...updates,
       updatedBy: userIdentifier,
       updatedAt: serverTimestamp()
-    }).catch((err) => {
+    });
+    updateDoc(doc(db, COLLECTION_NAME, id), updatePayload).catch((err) => {
       console.warn('Firestore update queued locally:', err.message);
     });
   },
