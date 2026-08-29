@@ -53,23 +53,21 @@ export const LoginPage: React.FC = () => {
         borderTop: '5px solid var(--color-primary)'
       }}>
         {/* Brand Header */}
-        <div style={{ padding: '28px 24px 20px', textAlign: 'center', borderBottom: '1px solid var(--color-border-light)' }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'var(--color-primary)',
-            color: 'var(--color-white)',
-            fontWeight: 800,
-            fontSize: '16px',
-            padding: '6px 14px',
-            borderRadius: 'var(--radius-sm)',
-            marginBottom: '10px',
-            letterSpacing: '1px'
-          }}>
-            SKYLIMO
+        <div style={{ padding: '24px 24px 16px', textAlign: 'center', borderBottom: '1px solid var(--color-border-light)' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+            <img 
+              src="/cropped-skylimo-logo.png" 
+              alt="SkyLimo Tourism & Rent Car" 
+              style={{
+                maxWidth: '220px',
+                width: '100%',
+                height: 'auto',
+                maxHeight: '60px',
+                objectFit: 'contain'
+              }}
+            />
           </div>
-          <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--color-black)', letterSpacing: '-0.2px' }}>
+          <h2 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--color-black)', letterSpacing: '-0.2px' }}>
             Trips Operations Portal
           </h2>
           <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginTop: '4px' }}>

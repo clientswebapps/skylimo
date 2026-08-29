@@ -45,12 +45,49 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className={`sidebar ${isOpen ? 'open' : ''} ${effectiveCollapsed ? 'collapsed' : ''}`}>
       {/* Brand Header */}
       <div className="sidebar-header" style={{ justifyContent: effectiveCollapsed ? 'center' : 'space-between', position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-          <div className="sidebar-logo-badge" title="SkyLimo Operations">SL</div>
-          {!effectiveCollapsed && (
-            <div className="sidebar-brand-text" style={{ overflow: 'hidden' }}>
-              <h1 className="sidebar-title">SkyLimo</h1>
-              <p className="sidebar-subtitle">TRIPS OPERATIONS</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+          {effectiveCollapsed ? (
+            <div style={{ 
+              width: '36px', 
+              height: '36px', 
+              borderRadius: '6px', 
+              backgroundColor: '#FFFFFF', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              padding: '3px',
+              overflow: 'hidden',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+            }}>
+              <img 
+                src="/cropped-skylimo-logo.png" 
+                alt="SkyLimo" 
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+              <div style={{
+                height: '38px',
+                padding: '3px 8px',
+                backgroundColor: '#FFFFFF',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+              }}>
+                <img 
+                  src="/cropped-skylimo-logo.png" 
+                  alt="SkyLimo Tourism & Rent Car" 
+                  style={{
+                    maxHeight: '32px',
+                    maxWidth: '140px',
+                    width: 'auto',
+                    objectFit: 'contain'
+                  }}
+                />
+              </div>
             </div>
           )}
         </div>
