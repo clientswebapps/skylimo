@@ -9,6 +9,7 @@ import {
   Car, 
   Users, 
   ShieldCheck,
+  Radio,
   LogOut, 
   User as UserIcon, 
   X,
@@ -210,6 +211,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <ShieldCheck size={18} className="nav-item-icon" />
               {!effectiveCollapsed && <span className="nav-item-label">Activity Logs</span>}
+            </NavLink>
+
+            <NavLink 
+              to="/online" 
+              onClick={handleNavClick}
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              title="Online & Active Users"
+            >
+              <Radio size={18} className="nav-item-icon" color="#10B981" />
+              {!effectiveCollapsed && (
+                <span className="nav-item-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <span>Online Users</span>
+                  <span style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    backgroundColor: '#10B981',
+                    boxShadow: '0 0 6px rgba(16, 185, 129, 0.8)'
+                  }} />
+                </span>
+              )}
             </NavLink>
           </>
         )}

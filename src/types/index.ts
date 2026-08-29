@@ -155,3 +155,22 @@ export interface ActivityLog {
   timestamp: string; // ISO String
   createdAt?: any;
 }
+
+export type PresenceStatus = 'online' | 'away' | 'offline';
+
+export interface UserPresence {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  userRole: UserRole;
+  status: PresenceStatus;
+  currentPath: string;
+  currentPageName: string;
+  deviceType: 'Desktop' | 'Mobile' | 'Tablet';
+  browser: string;
+  lastSeen: string;
+  loginAt?: string;
+  createdAt?: any;
+  updatedAt?: any;
+}

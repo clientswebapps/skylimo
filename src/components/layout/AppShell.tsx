@@ -1,11 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { Sidebar } from './Sidebar';
+import { useAuth } from '../../context/AuthContext';
+import { PresenceService } from '../../services/presence/presenceService';
 
 const COLLAPSED_STORAGE_KEY = 'skylimo_sidebar_collapsed';
 
 export const AppShell: React.FC = () => {
+  const { user } = useAuth();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     try {
@@ -14,6 +18,45 @@ export const AppShell: React.FC = () => {
       return false;
     }
   });
+
+  const lastActivityRef = useRef<number>(Date.now());
+
+  // Real-time presence heartbeat & route location updater
+  useEffect(() => {
+    if (!user) return;
+
+    // 1. Immediate presence ping on route change
+    PresenceService.updatePresence(user, location.pathname, false);
+
+    // 2. Track user activity (mouse / keypress) to detect idle/away state
+    const handleUserActivity = () => {
+      lastActivityRef.current = Date.now();
+    };
+
+    window.addEventListener('mousemove', handleUserActivity, { passive: true });
+    window.addEventListener('keydown', handleUserActivity, { passive: true });
+    window.addEventListener('touchstart', handleUserActivity, { passive: true });
+
+    // 3. Heartbeat interval every 30 seconds
+    const interval = setInterval(() => {
+      const isIdle = Date.now() - lastActivityRef.current > 4 * 60 * 1000; // 4 minutes idle
+      PresenceService.updatePresence(user, location.pathname, isIdle);
+    }, 30000);
+
+    // 4. Set offline on tab close / unload
+    const handleUnload = () => {
+      PresenceService.setOffline(user);
+    };
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('mousemove', handleUserActivity);
+      window.removeEventListener('keydown', handleUserActivity);
+      window.removeEventListener('touchstart', handleUserActivity);
+      window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, [user, location.pathname]);
 
   const toggleSidebar = () => setSidebarOpen((prev) => !prev);
   const closeSidebar = () => setSidebarOpen(false);

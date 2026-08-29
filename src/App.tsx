@@ -14,6 +14,7 @@ import { DriversPage } from './pages/Drivers/DriversPage';
 import { VehiclesPage } from './pages/Vehicles/VehiclesPage';
 import { UsersPage } from './pages/Users/UsersPage';
 import { ActivityLogsPage } from './pages/Logs/ActivityLogsPage';
+import { LivePresencePage } from './pages/Presence/LivePresencePage';
 
 export const App: React.FC = () => {
   return (
@@ -55,6 +56,14 @@ export const App: React.FC = () => {
                 element={
                   <ProtectedRoute requireAdmin={true}>
                     <ActivityLogsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/online" 
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <LivePresencePage />
                   </ProtectedRoute>
                 } 
               />

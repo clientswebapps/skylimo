@@ -37,5 +37,10 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read, write: if true;
     }
+
+    // ── USER PRESENCE Collection ─────────────────────────────
+    match /user_presence/{presenceId} {
+      allow read, write: if true;
+    }
   }
 }
