@@ -4,9 +4,6 @@ import {
   setDoc, 
   updateDoc, 
   deleteDoc, 
-  query, 
-  where, 
-  orderBy, 
   onSnapshot, 
   serverTimestamp 
 } from 'firebase/firestore';
@@ -334,24 +331,13 @@ const STORAGE_KEY = 'skylimo_local_bookings';
 
 export function getLocalBookings(): Booking[] {
   const saved = localStorage.getItem(STORAGE_KEY);
-  const today = getTodayYMD();
   if (!saved) {
     const initialized = generateSeedBookings();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(initialized));
     return initialized;
   }
   try {
-    const list: Booking[] = JSON.parse(saved);
-    const todayBookings = list.filter((b) => b.date === today);
-    if (todayBookings.length < 3) {
-      const todaySeeds = generateSeedBookings().filter((b) => b.date === today);
-      const existingIds = new Set(list.map((b) => b.id));
-      const newSeeds = todaySeeds.filter((b) => !existingIds.has(b.id));
-      const merged = [...newSeeds, ...list];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-      return merged;
-    }
-    return list;
+    return JSON.parse(saved);
   } catch (_) {
     return generateSeedBookings();
   }
@@ -432,49 +418,70 @@ function getCurrentUserIdentifier(): string {
 
 export const BookingService = {
   subscribeByDate(selectedDate: string, callback: (bookings: Booking[]) => void): () => void {
-    // 1. Immediately emit cached data (0ms instant response)
     const local = getLocalBookings().filter((b) => b.date === selectedDate);
     callback(local);
 
     const listenerObj: DateListener = { date: selectedDate, callback };
     dateListeners.add(listenerObj);
 
-    // 2. Background real-time sync with Firestore
-    let unsubscribeFirestore = () => {};
-    try {
-      const q = query(
-        collection(db, COLLECTION_NAME),
-        where('date', '==', selectedDate),
-        orderBy('time', 'asc')
-      );
-
-      unsubscribeFirestore = onSnapshot(q, (snapshot) => {
-        const firestoreList: Booking[] = snapshot.docs.map((d) => ({
-          id: d.id,
-          ...(d.data() as Omit<Booking, 'id'>)
-        }));
-
-        if (firestoreList.length > 0 || !snapshot.empty) {
-          const current = getLocalBookings();
-          const others = current.filter((b) => b.date !== selectedDate);
-          const merged = [...others, ...firestoreList];
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-          callback(firestoreList);
-        }
-      }, () => {});
-    } catch (e) {}
-
     return () => {
       dateListeners.delete(listenerObj);
-      unsubscribeFirestore();
     };
   },
 
   subscribeAll(callback: (bookings: Booking[]) => void): () => void {
+    // 1. Immediately emit cached data (0ms instant response)
     callback(getLocalBookings());
     allBookingListeners.add(callback);
+
+    // Cross-tab sync
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) {
+        callback(getLocalBookings());
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    // 2. Background live real-time sync with Cloud Firestore
+    let unsubscribeFirestore = () => {};
+    try {
+      unsubscribeFirestore = onSnapshot(
+        collection(db, COLLECTION_NAME),
+        async (snapshot) => {
+          if (!snapshot.empty) {
+            const firestoreList: Booking[] = snapshot.docs.map((d) => ({
+              id: d.id,
+              ...(d.data() as Omit<Booking, 'id'>)
+            }));
+
+            // Sort by date and time
+            firestoreList.sort((a, b) => ((a.date || '') + (a.time || '')).localeCompare((b.date || '') + (b.time || '')));
+            
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(firestoreList));
+            notifyBookingListeners();
+          } else {
+            // Seed initial bookings into Firestore if empty
+            const initialSeed = generateSeedBookings();
+            for (const bkg of initialSeed) {
+              try {
+                await setDoc(doc(db, COLLECTION_NAME, bkg.id), {
+                  ...bkg,
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp()
+                });
+              } catch (_) {}
+            }
+            saveLocalBookings(initialSeed);
+          }
+        },
+        () => {}
+      );
+    } catch (_) {}
+
     return () => {
       allBookingListeners.delete(callback);
+      window.removeEventListener('storage', handleStorage);
+      unsubscribeFirestore();
     };
   },
 
