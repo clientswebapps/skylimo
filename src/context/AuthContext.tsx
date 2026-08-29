@@ -12,6 +12,7 @@ import { auth, db } from '../services/firebase/config';
 import { getLocalUsers, getUserCredentials } from '../services/users/userService';
 import type { AppUser, UserRole } from '../types';
 import { ActivityService } from '../services/activity/activityService';
+import { PresenceService } from '../services/presence/presenceService';
 
 interface AuthContextType {
   user: AppUser | null;
@@ -156,6 +157,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser(appUserData);
         localStorage.setItem('skylimo_user_session', JSON.stringify(appUserData));
 
+        PresenceService.updatePresence(appUserData, '/bookings', false);
+
         ActivityService.log({
           action: 'login',
           module: 'auth',
@@ -184,6 +187,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser(localUser);
         localStorage.setItem('skylimo_user_session', JSON.stringify(localUser));
 
+        PresenceService.updatePresence(localUser, '/bookings', false);
+
         ActivityService.log({
           action: 'login',
           module: 'auth',
@@ -203,6 +208,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signOut = async () => {
     if (user) {
+      PresenceService.setOffline(user);
       ActivityService.log({
         action: 'logout',
         module: 'auth',

@@ -64,11 +64,15 @@ function sanitizeForFirestore(obj: any): any {
   return cleaned;
 }
 
+export function getPresenceDocId(email: string): string {
+  return (email || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+}
+
 export const PresenceService = {
   async updatePresence(user: AppUser | null, currentPath: string, isAway = false): Promise<void> {
     if (!user || !user.email) return;
-    const docId = user.uid || user.email.replace(/[@.]/g, '_');
-    const email = user.email.toLowerCase();
+    const email = user.email.trim().toLowerCase();
+    const docId = getPresenceDocId(email);
     const role = email === 'admin@skylimobh.com' ? 'admin' : (user.role === 'admin' ? 'staff' : (user.role || 'staff'));
     const displayName = user.displayName || (email.includes('@') ? email.split('@')[0] : 'User');
 
@@ -99,7 +103,8 @@ export const PresenceService = {
 
   async setOffline(user: AppUser | null): Promise<void> {
     if (!user || !user.email) return;
-    const docId = user.uid || user.email.replace(/[@.]/g, '_');
+    const email = user.email.trim().toLowerCase();
+    const docId = getPresenceDocId(email);
     try {
       await setDoc(doc(db, COLLECTION_NAME, docId), {
         status: 'offline',

@@ -14,19 +14,26 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import type { UserPresence, PresenceStatus } from '../../types';
+import type { UserPresence, PresenceStatus, AppUser } from '../../types';
 import { PresenceService } from '../../services/presence/presenceService';
+import { UserService } from '../../services/users/userService';
 
 export const LivePresencePage: React.FC = () => {
   const [presences, setPresences] = useState<UserPresence[]>([]);
+  const [registeredUsers, setRegisteredUsers] = useState<AppUser[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('All');
   const [selectedRole, setSelectedRole] = useState<string>('All');
   const [currentTime, setCurrentTime] = useState(Date.now());
 
-  // Real-time Firestore presence stream
+  // Real-time Firestore presence & users stream
   useEffect(() => {
-    return PresenceService.subscribe(setPresences);
+    const unsubPresence = PresenceService.subscribe(setPresences);
+    const unsubUsers = UserService.subscribe(setRegisteredUsers);
+    return () => {
+      unsubPresence();
+      unsubUsers();
+    };
   }, []);
 
   // Update relative time tickers every 10 seconds
@@ -35,10 +42,62 @@ export const LivePresencePage: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // Combine all registered system users with real-time presence data
+  const combinedPresences = useMemo(() => {
+    const presenceMap = new Map<string, UserPresence>();
+    presences.forEach((p) => {
+      if (p.userEmail) {
+        presenceMap.set(p.userEmail.trim().toLowerCase(), p);
+      }
+    });
+
+    const list: UserPresence[] = registeredUsers.map((u) => {
+      const email = (u.email || '').trim().toLowerCase();
+      const live = presenceMap.get(email);
+      if (live) {
+        return {
+          ...live,
+          userName: u.displayName || live.userName,
+          userRole: u.role || live.userRole
+        };
+      }
+      return {
+        id: u.uid || email.replace(/[^a-z0-9]/g, '_'),
+        userId: u.uid,
+        userEmail: email,
+        userName: u.displayName || (email.includes('@') ? email.split('@')[0] : 'Staff'),
+        userRole: u.role || 'staff',
+        status: 'offline' as PresenceStatus,
+        currentPath: '/',
+        currentPageName: 'Offline (Not active)',
+        deviceType: 'Desktop' as const,
+        browser: 'Web App',
+        lastSeen: u.lastLoginAt ? new Date(u.lastLoginAt).toISOString() : ''
+      };
+    });
+
+    // Also append any active presence records that aren't yet in local users list
+    presences.forEach((p) => {
+      if (p.userEmail && !list.some((item) => item.userEmail.toLowerCase() === p.userEmail.toLowerCase())) {
+        list.push(p);
+      }
+    });
+
+    // Sort: Online first (0), Away second (1), Offline third (2), then by lastSeen desc
+    list.sort((a, b) => {
+      const rank = (s: PresenceStatus) => (s === 'online' ? 0 : s === 'away' ? 1 : 2);
+      const rankDiff = rank(a.status) - rank(b.status);
+      if (rankDiff !== 0) return rankDiff;
+      return new Date(b.lastSeen || 0).getTime() - new Date(a.lastSeen || 0).getTime();
+    });
+
+    return list;
+  }, [registeredUsers, presences]);
+
   // Filter presences
   const filteredPresences = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return presences.filter((p) => {
+    return combinedPresences.filter((p) => {
       if (q) {
         const matches = 
           p.userName?.toLowerCase().includes(q) ||
@@ -52,20 +111,20 @@ export const LivePresencePage: React.FC = () => {
       if (selectedRole !== 'All' && p.userRole !== selectedRole) return false;
       return true;
     });
-  }, [presences, searchQuery, selectedStatus, selectedRole]);
+  }, [combinedPresences, searchQuery, selectedStatus, selectedRole]);
 
   // Presence KPIs
   const stats = useMemo(() => {
     let online = 0;
     let away = 0;
     let offline = 0;
-    presences.forEach((p) => {
+    combinedPresences.forEach((p) => {
       if (p.status === 'online') online++;
       else if (p.status === 'away') away++;
       else offline++;
     });
-    return { total: presences.length, online, away, offline };
-  }, [presences]);
+    return { total: combinedPresences.length, online, away, offline };
+  }, [combinedPresences]);
 
   const formatLastSeen = (isoString?: string) => {
     if (!isoString) return 'Never';
