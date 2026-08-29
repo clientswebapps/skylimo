@@ -104,23 +104,24 @@ function saveLocalActivityLogs(logs: ActivityLog[]) {
 
 function getCurrentUserFromStorage(): { id: string; email: string; name: string; role: 'admin' | 'staff' } {
   try {
-    const saved = localStorage.getItem('skylimo_user');
+    const saved = localStorage.getItem('skylimo_user_session') || localStorage.getItem('skylimo_user');
     if (saved) {
       const parsed = JSON.parse(saved);
+      const email = parsed.email || '';
       return {
-        id: parsed.uid || 'usr-1',
-        email: parsed.email || 'admin@skylimobh.com',
-        name: parsed.displayName || parsed.email?.split('@')[0] || 'Admin',
-        role: parsed.role || 'admin'
+        id: parsed.uid || parsed.id || 'usr-staff-1',
+        email: email || (parsed.role === 'admin' ? 'admin@skylimobh.com' : 'staff1@skylimobh.com'),
+        name: parsed.displayName || parsed.name || (email ? email.split('@')[0] : 'User'),
+        role: (parsed.role === 'admin' ? 'admin' : 'staff') as 'admin' | 'staff'
       };
     }
   } catch (_) {}
 
   return {
-    id: 'usr-admin-1',
-    email: 'admin@skylimobh.com',
-    name: 'SkyLimo Admin',
-    role: 'admin'
+    id: 'usr-staff-1',
+    email: 'staff1@skylimobh.com',
+    name: 'Dispatcher Staff',
+    role: 'staff'
   };
 }
 
@@ -129,6 +130,14 @@ export const ActivityService = {
     // 1. Immediate local cache emission (0ms)
     callback(getLocalActivityLogs());
     logListeners.add(callback);
+
+    // Cross-tab / cross-window sync
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) {
+        callback(getLocalActivityLogs());
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
 
     let unsubscribeFirestore = () => {};
     try {
@@ -151,6 +160,7 @@ export const ActivityService = {
 
     return () => {
       logListeners.delete(callback);
+      window.removeEventListener('storage', handleStorageChange);
       unsubscribeFirestore();
     };
   },
@@ -160,7 +170,11 @@ export const ActivityService = {
   },
 
   getByUserId(userId: string): ActivityLog[] {
-    return getLocalActivityLogs().filter((l) => l.userId === userId || l.userEmail === userId);
+    const clean = (userId || '').trim().toLowerCase();
+    return getLocalActivityLogs().filter((l) => 
+      (l.userId && l.userId.toLowerCase() === clean) || 
+      (l.userEmail && l.userEmail.toLowerCase() === clean)
+    );
   },
 
   async log(params: {

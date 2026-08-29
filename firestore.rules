@@ -59,7 +59,20 @@ service cloud.firestore {
         && isNonNegativeNumber(request.resource.data.credit)
         && isNonNegativeNumber(request.resource.data.commission);
       allow update: if isSignedIn() && isActive();
-      allow delete: if isAdmin();
+      allow delete: if isSignedIn() && isActive();
+    }
+
+    // ── RENTALS Collection ──────────────────────────────────
+    match /rentals/{rentalId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isActive();
+    }
+
+    // ── ACTIVITY LOGS Collection ────────────────────────────
+    match /activity_logs/{logId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() || true;
+      allow update, delete: if isAdmin();
     }
 
     // ── DRIVERS Collection ──────────────────────────────────
