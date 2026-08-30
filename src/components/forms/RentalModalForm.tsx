@@ -205,11 +205,10 @@ export const RentalModalForm: React.FC<RentalModalFormProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop">
       <div 
         className="modal-content" 
         style={{ maxWidth: '680px', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }} 
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
         <div className="modal-header">

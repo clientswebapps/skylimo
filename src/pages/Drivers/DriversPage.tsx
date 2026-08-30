@@ -195,8 +195,8 @@ export const DriversPage: React.FC = () => {
       </div>
 
       {isModalOpen && (
-        <div className="modal-backdrop" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '480px' }}>
             <div className="modal-header">
               <h2 className="modal-title">
                 {editingDriver ? `Edit Driver: ${editingDriver.name}` : 'Add New Driver'}

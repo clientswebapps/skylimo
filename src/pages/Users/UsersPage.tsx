@@ -414,8 +414,8 @@ export const UsersPage: React.FC = () => {
           1. ADD USER MODAL (Email, Password, Name, Role)
           ───────────────────────────────────────────────────────────── */}
       {isAddModalOpen && (
-        <div className="modal-backdrop" onClick={() => setIsAddModalOpen(false)}>
-          <div className="modal-content" style={{ maxWidth: '460px' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '460px' }}>
             <div className="modal-header">
               <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Plus size={16} color="var(--color-primary)" />
@@ -529,8 +529,8 @@ export const UsersPage: React.FC = () => {
           2. EDIT USER MODAL (Edit Name, Role, Password)
           ───────────────────────────────────────────────────────────── */}
       {isEditModalOpen && editingUser && (
-        <div className="modal-backdrop" onClick={() => setIsEditModalOpen(false)}>
-          <div className="modal-content" style={{ maxWidth: '460px' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '460px' }}>
             <div className="modal-header">
               <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Edit size={16} color="var(--color-primary)" />
@@ -681,8 +681,8 @@ export const UsersPage: React.FC = () => {
           3. USER INDIVIDUAL ACTIVITY LOGS MODAL
           ───────────────────────────────────────────────────────────── */}
       {isUserLogsModalOpen && selectedUserForLogs && (
-        <div className="modal-backdrop" onClick={() => setIsUserLogsModalOpen(false)}>
-          <div className="modal-content" style={{ maxWidth: '640px' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '640px' }}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Activity size={18} color="var(--color-primary)" />
@@ -812,8 +812,8 @@ export const UsersPage: React.FC = () => {
           4. IN-APP DELETE CONFIRMATION MODAL
           ───────────────────────────────────────────────────────────── */}
       {userToDelete && (
-        <div className="modal-backdrop" onClick={() => setUserToDelete(null)}>
-          <div className="modal-content" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '440px' }}>
             <div className="modal-header">
               <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-danger)' }}>
                 <Trash2 size={16} />

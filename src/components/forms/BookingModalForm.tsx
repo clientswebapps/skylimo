@@ -175,8 +175,8 @@ export const BookingModalForm: React.FC<BookingModalFormProps> = ({
   );
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop">
+      <div className="modal-content">
         <div className="modal-header">
           <h2 className="modal-title">
             {initialData ? 'Edit Booking Trip' : 'Add New Booking Trip'}

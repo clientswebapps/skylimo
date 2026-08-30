@@ -463,8 +463,8 @@ export const VehiclesPage: React.FC = () => {
 
       {/* Add / Edit Modal */}
       {isModalOpen && (
-        <div className="modal-backdrop" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content" style={{ maxWidth: '500px' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '500px' }}>
             <div className="modal-header">
               <h2 className="modal-title">
                 {editingVehicle ? `Edit Vehicle: #${editingVehicle.carNumber}` : 'Add New Vehicle to Fleet'}

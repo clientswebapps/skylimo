@@ -534,8 +534,8 @@ export const ActivityLogsPage: React.FC = () => {
 
       {/* Admin Clear All Logs Confirmation Modal */}
       {isClearConfirmOpen && (
-        <div className="modal-backdrop" onClick={() => !isClearing && setIsClearConfirmOpen(false)}>
-          <div className="modal-content" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '440px' }}>
             <div className="modal-header">
               <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-danger)' }}>
                 <Trash2 size={16} />
